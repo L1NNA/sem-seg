@@ -17,7 +17,7 @@ class SimpleSegmentaiton(Dataset):
         each_label = labels / 2
         for f in js_files:
             base = int(f.split('_')[0])
-            label = int(f.split('_')[2])
+            label = int(f.split('_')[2].split('.')[0])
             if base in file_mappings:
                 if file_mappings[base][label] < each_label:
                     file_mappings[base][label] += 1
@@ -35,4 +35,5 @@ class SimpleSegmentaiton(Dataset):
 
     def __getitem__(self, index):
         f = self.selected_files[index]
-        return torch.load(join(self.dest_path, f))
+        label = int(f.split('_')[2].split('.')[0])
+        return torch.load(join(self.dest_path, f)), label

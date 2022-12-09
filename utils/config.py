@@ -25,7 +25,7 @@ class Config:
 
         self.num_workers:int
         self.itr:int
-        self.training_epochs:int
+        self.epochs:int
         self.patience:int
         self.learning_rate:float
         self.loss:str

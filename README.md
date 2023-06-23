@@ -5,7 +5,7 @@ Semantic Code Segmentation, paper [link](https://www.overleaf.com/project/6331ca
 
 Use conda to manage environments
 ```shell script
-conda create -n sem_seg python=3.9
+conda create -n sem_seg python=3.8
 conda activate sem_seg
 # Install pytorch in accordance with your CUDA by pip
 pip install -r requirements.txt

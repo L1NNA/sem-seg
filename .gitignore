@@ -5,6 +5,7 @@ __pycache__/
 
 # Jupyter Notebook
 .ipynb_checkpoints
+test.ipynb
 
 # IDE
 .vscode
@@ -12,4 +13,5 @@ __pycache__/
 
 # cache files
 dest
-test.py
+data
+checkpoints

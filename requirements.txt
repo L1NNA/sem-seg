@@ -1,2 +1,2 @@
-jsbeautifier
-transformers
+numpy
+torch

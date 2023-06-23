@@ -7,11 +7,11 @@ class PositionalEmbedding(nn.Module):
 
     def __init__(self, d_model, max_len=5000):
         super(PositionalEmbedding, self).__init__()
-        pe = torch.zeros(max_len, d_model).float()
-        pe.require_grad = False
 
-        position = torch.arange(0, max_len).float().unsqueeze(1)
-        div_term = (torch.arange(0, d_model, 2).float() * - (math.log(10000.0) / d_model)).exp()
+        pe = torch.zeros(max_len, d_model, dtype=torch.float32)
+
+        position = torch.arange(0, max_len, dtype=torch.float32).unsqueeze(1)
+        div_term = (torch.arange(0, d_model, 2, dtype=torch.float32) * - (math.log(10000.0) / d_model)).exp()
 
         pe[:, 0::2] = torch.sin(position * div_term)
         pe[:, 1::2] = torch.cos(position * div_term)
@@ -21,3 +21,6 @@ class PositionalEmbedding(nn.Module):
 
     def forward(self, x):
         return self.pe[:, :x.size(1)].to(x.device)
+    
+    def relative(self, span_len, device):
+        return torch.flip(self.pe[:, :span_len], [1]).to(device)

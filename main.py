@@ -7,7 +7,7 @@ from torch.utils.data import DataLoader
 from torch import optim
 
 from utils.config import Config
-from baselines.stateful_lstm import StatefulLSTM
+from baselines import transformer, transformer_xl
 from data_loader.js_loader import SimpleSegmentaiton
 
 
@@ -59,62 +59,46 @@ def main(arg=None):
 
     parser = argparse.ArgumentParser(description='')
 
-    # basic config
+    # loading model
     parser.add_argument('--training', action='store_true', help='status')
-    parser.add_argument('--model', required=True, default='stateful_lstm',
-                        choices=['cats', 'stateful_lstm'],
-                        help='model name, options: [cats, stateful_lstm]')
-    parser.add_argument('--model_id', type=str, default='1', help='model id')
-    parser.add_argument('--des', type=str, default='test', help='exp description')
+    parser.add_argument('--model', required=True, default='transformer',
+                        choices=['transformer', 'transformer_xl'],
+                        help='model name, options: [TBD]')
+    parser.add_argument('--model_name', type=str, required=True, help='the name of weight files')
     parser.add_argument('--seed', type=int, default=42, help='random seed')
 
     # data_loader
-    parser.add_argument('--weights_path', type=str, default='./weights', help='the path of weight files')
+    parser.add_argument('--data_path', type=str, default='./data', help='the path of data files')
+    parser.add_argument('--model', required=True, default='enwik8',
+                        choices=['enwik8', 'wikiText103', 'SemSeg'],
+                        help='model name, options: [TBD]')
     parser.add_argument('--batch_size', type=int, default=32, help='batch size of train input data')
-    parser.add_argument('--seq_len', type=int, default=1024, help='input sequence length')
+    parser.add_argument('--seq_len', type=int, default=512, help='input sequence length')
+    parser.add_argument('--mem_len', type=int, default=0, help='memory sequence length')
 
     # hyper-parameters
-    parser.add_argument('--d_model', type=int, default=512, help='dimension of model')
-    parser.add_argument('--n_heads', type=int, default=8, help='num of heads')
-    parser.add_argument('--e_layers', type=int, default=2, help='num of encoder layers')
-    parser.add_argument('--d_layers', type=int, default=1, help='num of decoder layers')
-    parser.add_argument('--d_ff', type=int, default=2048, help='dimension of fcn')
-    parser.add_argument('--dropout', type=float, default=0.05, help='dropout')
+    transformer.add_args(parser)
+    transformer_xl.add_args(parser)
 
     # optimization
-    parser.add_argument('--num_workers', type=int, default=10, help='data loader num workers')
     parser.add_argument('--itr', type=int, default=2, help='experiments times')
     parser.add_argument('--epochs', type=int, default=10, help='train epochs')
-    parser.add_argument('--patience', type=int, default=3, help='early stopping patience')
-    parser.add_argument('--learning_rate', type=float, default=0.0001, help='optimizer learning rate')
-    parser.add_argument('--loss', type=str, default='mse', help='loss function')
+    parser.add_argument('--lr', type=float, default=0.0001, help='optimizer learning rate')
+    # parser.add_argument('--patience', type=int, default=3, help='early stopping patience')
 
     # GPU
     parser.add_argument('--gpu', type=int, action='append')
 
     args:Config = parser.parse_args(arg)
 
-    fix_seed = args.seed
-    random.seed(fix_seed)
-    torch.manual_seed(fix_seed)
-    np.random.seed(fix_seed)
+    random.seed(args.seed)
+    torch.manual_seed(args.seed)
+    np.random.seed(args.seed)
 
     if torch.cuda.is_available() and args.gpu:
         args.device = args.gpu[0]
 
-    args.model_id = '{}_{}_{}_dm{}_nh{}_el{}_dl{}_df{}_{}'.format(
-        args.model_id,
-        args.model,
-        args.seq_len,
-        args.d_model,
-        args.n_heads,
-        args.e_layers,
-        args.d_layers,
-        args.d_ff,
-        args.des
-    )
-
-    model = StatefulLSTM(args)
+    model = transformer.Transformer(args)
     model = model.to(args.device)
     dataset = SimpleSegmentaiton("C:\\Users\\Leord\\Documents\\GitHub\\sem-seg\\dest")
     train_dataset, val_dataset = torch.utils.data.random_split(dataset, [40, 10])

@@ -99,6 +99,7 @@ class Transformer(nn.Module):
         self.d_model = args.d_model
         self.dropout = args.dropout
         self.d_ff = args.d_ff
+        self.vocab_size = args.vocab_size
         
         self.embedding = nn.Embedding(self.vocab_size, self.d_model)
         self.pos_embedding = PositionalEmbedding(self.d_model)
@@ -107,15 +108,14 @@ class Transformer(nn.Module):
         ])
         self.output = nn.Linear(self.d_model, self.vocab_size)
 
-    def forward(self, x, masking=None):
+    def forward(self, x, mem=None):
         x = self.embedding(x)
         x += self.pos_embedding(x)
-        if masking is None:
-            seq_len = x.size(1)
-            masking = create_masking(seq_len, seq_len, x.device)
+        seq_len = x.size(1)
+        masking = create_masking(seq_len, seq_len, x.device)
         attns = {}
         for i, layer in enumerate(self.layers):
             x, attn = layer(x, masking=masking)
             attns[f'attn_{i}'] = attn
         output = self.output(x)
-        return output, attns
+        return output, mem

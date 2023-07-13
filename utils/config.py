@@ -1,4 +1,5 @@
 from typing import Optional, List
+import torch
 
 
 class Config:
@@ -8,27 +9,36 @@ class Config:
 
         self.training:bool
         self.model:str
-        self.model_id:str
-        self.des:str
+        self.model_name:str
+        self.checkpoint:str
         self.seed:int
         
         self.batch_size:int
         self.seq_len:int
-        self.weights_path:str
+        self.mem_len:int
+        self.data_path:str
+        self.data:str
 
+        # transformer
         self.d_model:int
         self.n_heads:int
-        self.e_layers:int
-        self.d_layers:int
+        self.n_layers:int
         self.d_ff:int
         self.dropout:float
+        # cosformer
+        self.cos_act:str
+        # expire span
+        self.expire_span_alpha:float
+        self.expire_span_ramp:int
+        self.expire_span_pre_div:float
 
-        self.num_workers:int
         self.itr:int
         self.epochs:int
-        self.patience:int
-        self.learning_rate:float
-        self.loss:str
+        self.lr:float
+        self.optim:str
 
         self.gpu:Optional[List[int]]
-        self.device = None
+        self.device:torch.device
+        self.rank:int
+        self.world_size:int
+        self.local_rank:int

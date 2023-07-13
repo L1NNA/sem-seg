@@ -24,3 +24,7 @@ class PositionalEmbedding(nn.Module):
     
     def relative(self, span_len, device):
         return torch.flip(self.pe[:, :span_len], [1]).to(device)
+    
+
+def random_position_embedding(sizes):
+    return nn.Parameter(torch.randn(*sizes))

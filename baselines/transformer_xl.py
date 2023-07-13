@@ -1,5 +1,6 @@
 """
-Transformer-XL model (https://arxiv.org/abs/1901.02860)
+Transformer-XL
+https://arxiv.org/abs/1901.02860
 """
 
 import torch

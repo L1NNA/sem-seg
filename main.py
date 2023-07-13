@@ -1,14 +1,17 @@
 import argparse
-import torch
 import random
-import numpy as np
-import torch.nn as nn
-from torch.utils.data import DataLoader
-from torch import optim
 
-from utils.config import Config
-from baselines import transformer, transformer_xl
+import numpy as np
+import torch
+import torch.nn as nn
+from torch import optim
+from torch.utils.data import DataLoader
+
+from baselines import cosformer, expire_span, transformer, transformer_xl
 from data_loader.js_loader import SimpleSegmentaiton
+from utils.config import Config
+from utils.distributed import sample_dataset, setup, wrap_model
+from utils.checkpoint import load, save
 
 
 def train(config:Config, model:nn.Module, train_loader:DataLoader, val_loader:DataLoader):
@@ -66,10 +69,11 @@ def main(arg=None):
                         help='model name, options: [TBD]')
     parser.add_argument('--model_name', type=str, required=True, help='the name of weight files')
     parser.add_argument('--seed', type=int, default=42, help='random seed')
+    parser.add_argument('--checkpoint', type=str, default='./checkpoint', help='checkpoint path')
 
     # data_loader
     parser.add_argument('--data_path', type=str, default='./data', help='the path of data files')
-    parser.add_argument('--model', required=True, default='enwik8',
+    parser.add_argument('--data', required=True, default='enwik8',
                         choices=['enwik8', 'wikiText103', 'SemSeg'],
                         help='model name, options: [TBD]')
     parser.add_argument('--batch_size', type=int, default=32, help='batch size of train input data')
@@ -79,15 +83,21 @@ def main(arg=None):
     # hyper-parameters
     transformer.add_args(parser)
     transformer_xl.add_args(parser)
+    cosformer.add_args(parser)
+    expire_span.add_args(parser)
 
     # optimization
     parser.add_argument('--itr', type=int, default=2, help='experiments times')
     parser.add_argument('--epochs', type=int, default=10, help='train epochs')
     parser.add_argument('--lr', type=float, default=0.0001, help='optimizer learning rate')
     # parser.add_argument('--patience', type=int, default=3, help='early stopping patience')
+    parser.add_argument("--optim", type=str, default="sgd", choices=("sgd", "adam"),
+        help="optimization method",
+    )
 
-    # GPU
+    # distribution
     parser.add_argument('--gpu', type=int, action='append')
+    parser.add_argument('--local_rank', type=int, default=0, help='local rank for DistributedDataParallel')
 
     args:Config = parser.parse_args(arg)
 
@@ -96,14 +106,15 @@ def main(arg=None):
     np.random.seed(args.seed)
 
     if torch.cuda.is_available() and args.gpu:
-        args.device = args.gpu[0]
+        args.device = torch.device("cuda")
 
+    setup(args)
     model = transformer.Transformer(args)
-    model = model.to(args.device)
+    model = wrap_model(args, model)
     dataset = SimpleSegmentaiton("C:\\Users\\Leord\\Documents\\GitHub\\sem-seg\\dest")
     train_dataset, val_dataset = torch.utils.data.random_split(dataset, [40, 10])
-    train_loader = DataLoader(train_dataset, args.batch_size, shuffle=True)
-    val_loader = DataLoader(val_dataset, args.batch_size, shuffle=True)
+    train_loader = sample_dataset(args, train_dataset)
+    val_loader = sample_dataset(args, val_dataset)
     train(args, model, train_loader, val_loader)
     # TODO test
 

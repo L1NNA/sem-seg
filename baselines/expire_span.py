@@ -201,7 +201,7 @@ class ExpireSpan(nn.Module):
         batch_size, seq_len, _ = x.size(1)
 
         # x: batch_size x seq_len x d_model
-        h = self.embedding(x)
+        h = self.embedding(x) # no scaling
 
         h_prev = mems[:-self.n_layers]
         c_prev = mems[-self.n_layers:]

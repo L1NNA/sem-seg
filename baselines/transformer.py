@@ -4,7 +4,7 @@ import torch.nn.functional as F
 import math
 
 from layers.ffn import FFN
-from layers.embeddings import PositionalEmbedding
+from layers.embeddings import PositionalEncoding
 from layers.masking import create_masking
 
 
@@ -102,15 +102,16 @@ class Transformer(nn.Module):
         self.vocab_size = args.vocab_size
         
         self.embedding = nn.Embedding(self.vocab_size, self.d_model)
-        self.pos_embedding = PositionalEmbedding(self.d_model)
+        self.embedding_scale = math.sqrt(self.d_model)
+        self.pos_encoding = PositionalEncoding(self.d_model)
         self.layers = nn.ModuleList([
             TransformerLayer(self.d_model, self.n_heads, self.d_ff, self.dropout) for _ in range(self.n_layers)
         ])
         self.output = nn.Linear(self.d_model, self.vocab_size)
 
     def forward(self, x, mem=None):
-        x = self.embedding(x)
-        x += self.pos_embedding(x)
+        x = self.embedding(x) * self.embedding_scale
+        x += self.pos_encoding(x)
         seq_len = x.size(1)
         masking = create_masking(seq_len, seq_len, x.device)
         attns = {}

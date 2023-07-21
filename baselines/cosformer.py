@@ -2,9 +2,11 @@
 cosFormer: Rethinking Softmax In Attention
 https://arxiv.org/abs/2202.08791
 """
+import math
+
+import numpy as np
 import torch
 import torch.nn as nn
-import numpy as np
 
 from layers.ffn import FFN
 
@@ -120,13 +122,14 @@ class Cosformer(nn.Module):
         self.vocab_size = args.vocab_size
         
         self.embedding = nn.Embedding(self.vocab_size, self.d_model)
+        self.embedding_scale = math.sqrt(self.d_model)
         self.layers = nn.ModuleList([
             TransformerLayer(self.d_model, self.n_heads, self.d_ff, self.dropout, self.max_len) for _ in range(self.n_layers)
         ])
         self.output = nn.Linear(self.d_model, self.vocab_size)
 
     def forward(self, x, mem=None):
-        x = self.embedding(x)
+        x = self.embedding(x) * self.embedding_scale
         mem = self._update_memory(x, mem)
         for layer in self.layers:
             x = layer(x, mem)

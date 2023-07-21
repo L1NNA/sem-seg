@@ -3,10 +3,10 @@ import torch
 import torch.nn as nn
 
 
-class PositionalEmbedding(nn.Module):
+class PositionalEncoding(nn.Module):
 
     def __init__(self, d_model, max_len=5000):
-        super(PositionalEmbedding, self).__init__()
+        super(PositionalEncoding, self).__init__()
 
         pe = torch.zeros(max_len, d_model, dtype=torch.float32)
 

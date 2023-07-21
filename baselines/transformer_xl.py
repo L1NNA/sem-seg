@@ -9,7 +9,7 @@ import torch.nn.functional as F
 import math
 
 from layers.ffn import FFN
-from layers.embeddings import PositionalEmbedding
+from layers.embeddings import PositionalEncoding
 from layers.masking import create_masking
 
 
@@ -124,7 +124,8 @@ class TransformerXL(nn.Module):
         self.seq_len = args.seq_len
 
         self.embedding = nn.Embedding(args.vocab_size, self.d_model)
-        self.pos_emb = PositionalEmbedding(self.d_model)
+        self.embedding_scale = math.sqrt(self.d_model)
+        self.pos_emb = PositionalEncoding(self.d_model)
 
         self.layers = nn.ModuleList(
             [TransformerXLLayer(self.d_model, self.n_heads,
@@ -142,7 +143,7 @@ class TransformerXL(nn.Module):
         if memory is not None and len(memory[0].size()) > 1:
             span_len += memory[0].size(1)
 
-        x = self.embedding(x)
+        x = self.embedding(x) * self.embedding_scale
         mask = create_masking(self.seq_len, span_len, x.device)
         pos_emb = self.pos_emb.relative(span_len, x.device)
 

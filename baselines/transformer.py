@@ -6,17 +6,18 @@ import math
 from layers.ffn import FFN
 from layers.embeddings import PositionalEncoding
 from layers.masking import create_masking
+from utils.config import Config
 
 
 def add_args(parser):
+    parser.add_argument(
+        "--d_model", type=int, default=512, help="hidden dimension"
+    )
     parser.add_argument(
         "--n_heads", type=int, default=4, help="number of attention heads"
     )
     parser.add_argument(
         "--n_layers", type=int, default=6, help="number of layers"
-    )
-    parser.add_argument(
-        "--d_model", type=int, default=512, help="hidden dimension"
     )
     parser.add_argument(
         "--dropout", type=float, default=0.2, help="dropout rate"
@@ -62,7 +63,8 @@ class MultiHeadAttention(nn.Module):
         v = v.transpose(1, 2)
 
         output, attn = scaled_dot_product_attention(q, k, v, masking=masking)
-        output = output.transpose(1, 2).reshape(batch_size, -1, self.num_heads * self.d_k)
+        output = output.transpose(1, 2) \
+                    .reshape(batch_size, -1, self.num_heads * self.d_k)
 
         output = self.out(output)
         output = self.dropout(output)
@@ -91,7 +93,7 @@ class TransformerLayer(nn.Module):
 
 class Transformer(nn.Module):
 
-    def __init__(self, args) -> None:
+    def __init__(self, args:Config) -> None:
         super(Transformer, self).__init__()
 
         self.n_heads = args.n_heads
@@ -105,11 +107,12 @@ class Transformer(nn.Module):
         self.embedding_scale = math.sqrt(self.d_model)
         self.pos_encoding = PositionalEncoding(self.d_model)
         self.layers = nn.ModuleList([
-            TransformerLayer(self.d_model, self.n_heads, self.d_ff, self.dropout) for _ in range(self.n_layers)
+            TransformerLayer(self.d_model, self.n_heads, self.d_ff, self.dropout)
+            for _ in range(self.n_layers)
         ])
         self.output = nn.Linear(self.d_model, self.vocab_size)
 
-    def forward(self, x, mem=None):
+    def forward(self, x:torch.Tensor):
         x = self.embedding(x) * self.embedding_scale
         x += self.pos_encoding(x)
         seq_len = x.size(1)
@@ -119,4 +122,4 @@ class Transformer(nn.Module):
             x, attn = layer(x, masking=masking)
             attns[f'attn_{i}'] = attn
         output = self.output(x)
-        return output, mem
+        return output

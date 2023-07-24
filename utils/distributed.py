@@ -6,28 +6,40 @@ from torch.utils.data import DataLoader, DistributedSampler
 from utils.config import Config
 
 
-def setup(args:Config):
+def setup_device(config:Config):
+    if not config.gpu or not torch.cuda.is_available():
+        config.device = torch.device("cpu")
+        config.world_size = 0
+        config.rank = 0
+        return
+    config.world_size = torch.cuda.device_count()
 
-    dist.init_process_group(
-        backend='nccl',
-        init_method='env://'
-    )
+    if config.world_size > 1:
+        dist.init_process_group(
+            backend='nccl',
+            init_method='env://'
+        )
 
-    args.rank = dist.get_rank()
-    args.world_size = dist.get_world_size()
-    torch.cuda.set_device(args.local_rank)
-    args.device = torch.device("cuda", args.rank)
+        config.rank = dist.get_rank()
+        config.world_size = dist.get_world_size()
+    else:
+        config.rank = 0
+    torch.cuda.set_device(config.rank)
+    config.device = torch.device("cuda", config.rank)
 
-
-def sample_dataset(args:Config, dataset):
-    sampler = DistributedSampler(dataset)
-    dataloader = DataLoader(dataset, batch_size=args.batch_size, sampler=sampler)
+def distribute_dataset(config:Config, dataset):
+    is_distributed = config.world_size > 1
+    sampler = DistributedSampler(dataset) if is_distributed else None
+    dataloader = DataLoader(dataset, num_workers=config.num_workers,
+                            batch_size=config.batch_size,
+                            shuffle=not is_distributed,
+                            sampler=sampler)
     return dataloader
 
 def wrap_model(args:Config, model):
     model = model.to(args.device)
-    model = DDP(
-        model,
-        device_ids=[args.local_rank]
-    )
+    if args.world_size > 1:
+        model = DDP(
+            model
+        )
     return model

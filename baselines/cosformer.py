@@ -9,11 +9,13 @@ import torch
 import torch.nn as nn
 
 from layers.ffn import FFN
+from utils.config import Config
 
 
 def add_args(parser):
-    parser.add_argument("--cos_act", type=str, default="relu", choices=("relu", "gelu"),
-        help="Activation function for cosformer",
+    parser.add_argument("--cos_act", type=str, default="relu",
+                        choices=("relu", "gelu"),
+                        help="Activation function for cosformer",
     )
 
 class CosMultiHeadAttention(nn.Module):
@@ -70,7 +72,8 @@ class CosMultiHeadAttention(nn.Module):
         # batch_size x n_heads x 2*d_k * d_v
         kv_ = torch.einsum("bnld,bnlm->bndm", k_, v)
         # Row scaling: batch_size x n_heads x tgt_len
-        z_ = 1 / torch.clamp_min(torch.einsum('bnld,bnd->bnl', q_, torch.sum(k_, axis=2)), eps)
+        z_ = 1 / torch.clamp_min(
+            torch.einsum('bnld,bnd->bnl', q_,torch.sum(k_, axis=2)), eps)
         # qkl: batch_size x n_heads x tgt_len x d_v
         attn_output = torch.einsum('bnld,bndm,bnl->bnlm', q_, kv_, z_)
         attn_output = attn_output.transpose(1, 2).reshape(batch_size, tgt_len, -1)
@@ -92,7 +95,9 @@ class TransformerLayer(nn.Module):
     def __init__(self, d_model, n_heads, d_ff, dropout=0.1, max_len=512):
         super(TransformerLayer, self).__init__()
 
-        self.attn = CosMultiHeadAttention(d_model, n_heads, dropout=dropout, max_len=max_len)
+        self.attn = CosMultiHeadAttention(d_model, n_heads,
+                                          dropout=dropout,
+                                          max_len=max_len)
         self.norm_1 = nn.LayerNorm(d_model)
 
         self.ffn = FFN(d_model, d_ff, dropout=dropout)
@@ -109,7 +114,7 @@ class TransformerLayer(nn.Module):
 
 class Cosformer(nn.Module):
 
-    def __init__(self, args) -> None:
+    def __init__(self, args:Config) -> None:
         super(Cosformer, self).__init__()
 
         self.n_heads = args.n_heads
@@ -124,17 +129,19 @@ class Cosformer(nn.Module):
         self.embedding = nn.Embedding(self.vocab_size, self.d_model)
         self.embedding_scale = math.sqrt(self.d_model)
         self.layers = nn.ModuleList([
-            TransformerLayer(self.d_model, self.n_heads, self.d_ff, self.dropout, self.max_len) for _ in range(self.n_layers)
+            TransformerLayer(self.d_model, self.n_heads, self.d_ff,
+                             self.dropout, self.max_len) 
+            for _ in range(self.n_layers)
         ])
         self.output = nn.Linear(self.d_model, self.vocab_size)
 
-    def forward(self, x, mem=None):
+    def forward(self, x):
         x = self.embedding(x) * self.embedding_scale
         mem = self._update_memory(x, mem)
         for layer in self.layers:
-            x = layer(x, mem)
+            x = layer(x, x)
         output = self.output(x)
-        return output, mem
+        return output
     
     def _update_memory(self, x, mem):
         if mem is None:

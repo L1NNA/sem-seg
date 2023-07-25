@@ -4,7 +4,6 @@ from os.path import join
 
 import torch
 from torch.utils.data import Dataset
-from tqdm import tqdm
 
 from data_loader.setup_BPE import get_tokenizer
 
@@ -14,9 +13,10 @@ class SeqDataset(Dataset):
     Load tokens sequentially   
     """
 
-    def __init__(self, token_path, seq_len):
+    def __init__(self, token_path, seq_len, max_len=100000):
         tk_files = glob.glob(join(token_path, '*.tk'))
         assert len(tk_files) > 0, 'No token files found'
+        tk_files.sort()
         
         self.data = {}
         self.selected_files = []
@@ -25,7 +25,7 @@ class SeqDataset(Dataset):
         # apply bpe
         tokenizer = get_tokenizer()
         # load all files
-        for f in tqdm(tk_files, desc='Loading data'):
+        for f in tk_files:
             with open(f, 'r', encoding='utf-8') as content:
                 tokens = tokenizer.tokenize(content.read())
                 token_ids = tokenizer.convert_tokens_to_ids(tokens)
@@ -39,6 +39,8 @@ class SeqDataset(Dataset):
                 self.selected_files.append(key)
                 for i in range(1, len(tokens) - seq_len):
                     self.selected_files.append(i)
+                if len(self.selected_files) > max_len:
+                    break
 
     def __len__(self):
         return len(self.selected_files)

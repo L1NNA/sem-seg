@@ -45,3 +45,4 @@ class Config:
         self.device:torch.device
         self.world_size:int
         self.rank:int
+        self.local_rank:int

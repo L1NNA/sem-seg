@@ -135,13 +135,13 @@ class Cosformer(nn.Module):
         ])
         self.output = nn.Linear(self.d_model, self.vocab_size)
 
-    def forward(self, x):
+    def forward(self, x, mem=None):
         x = self.embedding(x) * self.embedding_scale
         mem = self._update_memory(x, mem)
         for layer in self.layers:
             x = layer(x, x)
         output = self.output(x)
-        return output
+        return output, mem
     
     def _update_memory(self, x, mem):
         if mem is None:

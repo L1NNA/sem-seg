@@ -18,7 +18,7 @@ def define_argparser():
     # loading model
     parser.add_argument('--training', action='store_true', help='status')
     parser.add_argument('--model', required=True, default='transformer',
-                        choices=['transformer', 'transformer_xl'],
+                        choices=['transformer', 'cosFormer', 'cats', 'graphcodebert'],
                         help='model name, options: [TBD]')
     parser.add_argument('--model_name', type=str, required=True,
                         help='the name of weight files')
@@ -69,8 +69,9 @@ def define_argparser():
 
     # distribution
     parser.add_argument('--gpu', action='store_true', help='use gpu or not')
-    parser.add_argument('--local_rank', type=int, default=0,
-                        help='local rank for DistributedDataParallel')
+    parser.add_argument('--local_rank', type=int, default=-1,
+        help="local instance",
+    )
     
     return parser
 
@@ -119,16 +120,4 @@ def main(arg=None):
     # TODO: test
 
 if __name__ == "__main__":
-    main([
-        "--training",
-        "--model_name", "transformer",
-        "--model", "transformer",
-
-        "--data", "seq",
-        "--data_path", "./dest",
-        "--batch_size", "32",
-
-        "--seq_len", "512",
-        "--n_layers", "4",
-        "--gpu"
-    ])
+    main()

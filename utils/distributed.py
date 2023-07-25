@@ -12,9 +12,10 @@ def setup_device(config:Config):
         config.world_size = 0
         config.rank = 0
         return
-    config.world_size = torch.cuda.device_count()
-
-    if config.world_size > 1:
+    elif config.local_rank > -1 or torch.cuda.device_count() == 1:
+        config.world_size = 1
+        config.rank = config.local_rank if config.local_rank > -1 else 0
+    else:
         dist.init_process_group(
             backend='nccl',
             init_method='env://'
@@ -22,8 +23,7 @@ def setup_device(config:Config):
 
         config.rank = dist.get_rank()
         config.world_size = dist.get_world_size()
-    else:
-        config.rank = 0
+
     torch.cuda.set_device(config.rank)
     config.device = torch.device("cuda", config.rank)
 

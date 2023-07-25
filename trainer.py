@@ -3,8 +3,10 @@ import torch.nn as nn
 from torch import optim
 from typing import Optional
 import numpy as np
+from tqdm import tqdm
 
 from torch.utils.data import DataLoader
+from torch.utils.data.distributed import DistributedSampler
 
 from utils.config import Config
 
@@ -41,10 +43,14 @@ def sequential_training(config:Config, model:nn.Module,
     criterion = nn.CrossEntropyLoss()
 
     for epoch in range(init_epoch, config.epochs):
+        if isinstance(train_loader.sampler, DistributedSampler):
+            train_loader.sampler.set_epoch(epoch)
+
         train_loss = []
 
         model.train()
-        for i, (x, y) in enumerate(train_loader):
+        mem = None
+        for x, y in tqdm(train_loader, desc=f'Epoch {epoch}'):
 
             # zero the parameter gradients
             optimizer.zero_grad()
@@ -54,6 +60,8 @@ def sequential_training(config:Config, model:nn.Module,
 
             if config.model == 'cats':
                 outputs, aux_loss = model(x)
+            elif config.model == 'cosFormer':
+                outputs, mem = model(x, mem)
             else:
                 outputs = model(x)
             
@@ -65,8 +73,8 @@ def sequential_training(config:Config, model:nn.Module,
                 loss += aux_loss
             train_loss.append(loss.item())
 
-            if (i + 1) % 100 == 0:
-                print("epoch: {0} | item: {1} | loss: {2:.7f}".format(epoch + 1, i + 1, loss.item()))
+            # if (i + 1) % 100 == 0:
+            #     print("epoch: {0} | item: {1} | loss: {2:.7f}".format(epoch + 1, i + 1, loss.item()))
             loss.backward()
             optimizer.step()
         if scheduler is not None:
@@ -86,6 +94,7 @@ def sequential_training(config:Config, model:nn.Module,
             if config.model == 'cats':
                 outputs = outputs[0]
             outputs = outputs[:, -1, :]
+            y = y[:, -1]
             predicted = torch.argmax(outputs, dim=1)
             total += y.size(0)
             correct += (predicted == y).sum().item()

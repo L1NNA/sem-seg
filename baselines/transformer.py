@@ -102,6 +102,7 @@ class Transformer(nn.Module):
         self.dropout = args.dropout
         self.d_ff = args.d_ff
         self.vocab_size = args.vocab_size
+        self.output_size = args.vocab_size if args.data == 'seq' else 2
         
         self.embedding = nn.Embedding(self.vocab_size, self.d_model)
         self.embedding_scale = math.sqrt(self.d_model)
@@ -110,7 +111,8 @@ class Transformer(nn.Module):
             TransformerLayer(self.d_model, self.n_heads, self.d_ff, self.dropout)
             for _ in range(self.n_layers)
         ])
-        self.output = nn.Linear(self.d_model, self.vocab_size)
+        self.output = nn.Linear(self.d_model, self.output_size)
+
 
     def forward(self, x:torch.Tensor):
         x = self.embedding(x) * self.embedding_scale

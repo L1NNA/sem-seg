@@ -29,15 +29,15 @@ class SeqDataset(Dataset):
             with open(f, 'r', encoding='utf-8') as content:
                 tokens = tokenizer.tokenize(content.read())
                 token_ids = tokenizer.convert_tokens_to_ids(tokens)
-                if len(token_ids) < seq_len + 1:
-                    continue
                 token_ids = SeqDataset._prune_tokens(
                     token_ids, tokenizer.sep_token_id)
+                if len(token_ids) < seq_len + 1:
+                    continue
                 key = hashlib.md5(f.encode()).hexdigest()
                 self.data[key] = token_ids
                 # map key to index
                 self.selected_files.append(key)
-                for i in range(1, len(tokens) - seq_len):
+                for i in range(1, len(token_ids) - seq_len):
                     self.selected_files.append(i)
                 if len(self.selected_files) > max_len:
                     break

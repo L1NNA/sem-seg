@@ -1,6 +1,7 @@
 """
 Two-Level Transformer and Auxiliary Coherence
 Modeling for Improved Text Segmentation
+https://arxiv.org/abs/2001.00891
 """
 import math
 
@@ -22,6 +23,7 @@ class CATS(nn.Module):
     def __init__(self, config:Config, pos_dim=10):
         super(CATS, self).__init__()
         self.pos_dim = pos_dim
+        self.output_size = config.vocab_size if config.data == 'seq' else 2
 
         # embedding
         self.embedding = nn.Embedding(config.vocab_size, config.d_model) 
@@ -41,8 +43,7 @@ class CATS(nn.Module):
             self.window_encoder_layer, config.w_layers)
 
         # Segmentation Classifier
-        self.seg = nn.Linear(config.d_model, 2)
-        self.seg_softmax = nn.Softmax(dim=2)
+        self.seg = nn.Linear(config.d_model, self.output_size)
 
         # TODO: Auxiliary Regressor
         self.aux = nn.Linear(config.d_model, 1)
@@ -68,16 +69,15 @@ class CATS(nn.Module):
         # encode each window (paragraph)
         y = self.window_encoder(y)
         y = self.seg(z)
-        y = self.seg_softmax(z)
 
+        # calculate auxiliary loss
         z = self.aux(y)
         z = self.aux_softmax(z)
-
-        
         norm_scores_true = z[:, 0]
         norm_scores_false = z[:, 1]
         norm_scores = norm_scores_true - norm_scores_false
         norm_scores = self.coherence_hinge_margin - norm_scores
         aux_loss = torch.clamp(norm_scores, min=0)
-        return z, aux_loss
+        
+        return y, aux_loss
 

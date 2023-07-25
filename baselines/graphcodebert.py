@@ -1,3 +1,7 @@
+"""
+GraphCodeBERT: Pre-training Code Representations with Data Flow
+https://arxiv.org/abs/2009.08366
+"""
 import torch
 import torch.nn as nn
 from transformers import RobertaConfig, RobertaModel
@@ -20,12 +24,13 @@ class GraphCodeBERT(nn.Module):
     def __init__(self, config:Config) -> None:
         super(GraphCodeBERT, self).__init__()
         self.config = config
+        self.output_size = config.vocab_size if config.data == 'seq' else 2
 
         bert_config = RobertaConfig.from_pretrained(GRAPH_CODE_BERT)
         self.encoder = RobertaModel.from_pretrained(GRAPH_CODE_BERT,
                                                     config=bert_config)
 
-        self.output = nn.Linear(bert_config.hidden_size, config.vocab_size)
+        self.output = nn.Linear(bert_config.hidden_size, self.output_size)
 
     def forward(self, x:torch.Tensor):
         attn_mask = create_masking(x.size(1), x.size(1))

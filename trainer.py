@@ -65,6 +65,8 @@ def sequential_training(config:Config, model:nn.Module,
             else:
                 outputs = model(x)
             
+            if config.data == 'binary':
+                outputs = outputs[:, -1, :]
             outputs = outputs.reshape(-1, outputs.shape[-1])
             y = y.reshape(-1)
 

@@ -31,7 +31,7 @@ def define_argparser():
     parser.add_argument('--data_path', type=str, default='./data',
                         help='the path of data files')
     parser.add_argument('--data', required=True, default='seq',
-                        choices=['seq'], help='datasaets')
+                        choices=['seq', 'binary'], help='datasaets')
     parser.add_argument('--num_workers', type=int, default=8,
                         help='number of workers')
     parser.add_argument('--batch_size', type=int, default=32,

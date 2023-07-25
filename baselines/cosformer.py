@@ -125,6 +125,7 @@ class Cosformer(nn.Module):
         self.mem_len = args.mem_len
         self.max_len = max(args.seq_len, args.mem_len)
         self.vocab_size = args.vocab_size
+        self.output_size = args.vocab_size if args.data == 'seq' else 2
         
         self.embedding = nn.Embedding(self.vocab_size, self.d_model)
         self.embedding_scale = math.sqrt(self.d_model)
@@ -133,7 +134,7 @@ class Cosformer(nn.Module):
                              self.dropout, self.max_len) 
             for _ in range(self.n_layers)
         ])
-        self.output = nn.Linear(self.d_model, self.vocab_size)
+        self.output = nn.Linear(self.d_model, self.output_size)
 
     def forward(self, x, mem=None):
         x = self.embedding(x) * self.embedding_scale

@@ -6,7 +6,7 @@ import torch
 
 from baselines import cats, cosformer, graphcodebert, transformer
 from data_loader import load_dataset, load_tokenizer
-from trainer import load_optimization, sequential_training, validation, test
+from trainer import load_optimization, train, test
 from utils.checkpoint import load, save
 from utils.config import Config
 from utils.distributed import distribute_dataset, setup_device, wrap_model
@@ -16,16 +16,17 @@ def define_argparser():
     parser = argparse.ArgumentParser(description='')
 
     # loading model
-    parser.add_argument('--training', action='store_true', help='status')
     parser.add_argument('--model', required=True, default='transformer',
                         choices=['transformer', 'cosFormer', 'cats', 'graphcodebert'],
-                        help='model name, options: [TBD]')
-    parser.add_argument('--model_name', type=str, required=True,
-                        help='the name of weight files')
+                        help='model name')
+    parser.add_argument('--model_id', type=str, required=True,
+                        help='the unique name of the current model')
     parser.add_argument('--seed', type=int, default=42,
                         help='random seed')
-    parser.add_argument('--checkpoint', type=str, default='./checkpoint',
+    parser.add_argument('--checkpoint', type=str, default='./checkpoints',
                         help='checkpoint path')
+    parser.add_argument('--training', action='store_true', help='if training')
+    parser.add_argument('--testing', action='store_true', help='if testing')
 
     # data_loader
     parser.add_argument('--data_path', type=str, default='./data',
@@ -48,14 +49,10 @@ def define_argparser():
     graphcodebert.add_args(parser)
 
     # optimization
-    # parser.add_argument('--itr', type=int, default=2,
-    #                     help='experiments times')
     parser.add_argument('--epochs', type=int, default=10,
                         help='train epochs')
     parser.add_argument('--lr', type=float, default=0.0001,
                         help='optimizer learning rate')
-    # parser.add_argument('--patience', type=int, default=3,
-    #                     help='early stopping patience')
     parser.add_argument("--optim", type=str, default="adam",
                         choices=("sgd", "adam"),
                         help="optimization method",
@@ -66,6 +63,10 @@ def define_argparser():
     parser.add_argument("--lr_decay", action="store_true", default=False,
         help="decay learning rate with cosine scheduler",
     )
+    # parser.add_argument('--patience', type=int, default=3,
+    #                     help='early stopping patience')
+    # parser.add_argument('--itr', type=int, default=2,
+    #                     help='experiments times')
 
     # distribution
     parser.add_argument('--gpu', action='store_true', help='use gpu or not')
@@ -100,6 +101,15 @@ def main(arg=None):
     model = models[config.model](config)
     model = wrap_model(config, model)
 
+    # build name
+    config.model_name = '{}_{}_{}_window{}_dim{}'.format(
+        config.model_id,
+        config.model,
+        config.data,
+        config.seq_len,
+        config.d_model
+    )
+
     # load dataset
     train_dataset, val_dataset, test_dataset = load_dataset(config)
     train_loader = distribute_dataset(config, train_dataset)
@@ -110,14 +120,20 @@ def main(arg=None):
     optimizer, scheduler = load_optimization(config, model)
 
     # load models
-    ep_init = load(config, model, optimizer, scheduler)
-    if config.training:
-        sequential_training(config, model, train_loader, val_loader,
-                            optimizer, scheduler, ep_init)
-        # if config.rank == 0:
-        #     save(config, model, optimizer, None)
+    init_epoch = load(config, model, optimizer, scheduler)
 
-    test(config, model, test_loader)
+    # training
+    if config.training:
+        print('>>>>>>>start training<<<<<<<')
+        train(config, model, train_loader, val_loader,
+                            optimizer, scheduler, init_epoch)
+        if not config.distributed or config.rank == 0:
+            save(config, model, optimizer, scheduler)
+
+    # testing
+    if config.testing:
+        print('>>>>>>>start testing<<<<<<<')
+        test(config, model, test_loader)
 
 if __name__ == "__main__":
     main()

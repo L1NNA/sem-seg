@@ -35,13 +35,13 @@ def load_optimization(config:Config, model):
     return optimizer, scheduler
 
 
-def sequential_training(config:Config, model:nn.Module,
-                        train_loader:DataLoader, val_loader:DataLoader,
-                        optimizer:optim.Optimizer,
-                        scheduler:Optional[optim.lr_scheduler._LRScheduler],
-                        init_epoch:int=0
-                        ):
-    # predict next token
+def train(
+        config:Config, model:nn.Module,
+        train_loader:DataLoader, val_loader:DataLoader,
+        optimizer:optim.Optimizer,
+        scheduler:Optional[optim.lr_scheduler._LRScheduler],
+        init_epoch:int=0
+    ):
     criterion = nn.CrossEntropyLoss()
 
     for epoch in range(init_epoch, config.epochs):
@@ -108,7 +108,7 @@ def validation(config, model, val_loader, train_loss, epoch):
     stat = torch.tensor([correct, total, np.sum(train_loss), len(train_loss)],
                 dtype=torch.float32).to(config.device)
     dist.reduce(stat, 0)
-    if config.rank == 0:
+    if not config.distributed or config.rank == 0:
         accuracy = 100 * stat[0] / stat[1]
         train_loss = stat[2] / stat[3]
         print("Epoch: {0} | Train Loss: {1:.7f} Accuracy: {2:.2f}%" \
@@ -136,6 +136,6 @@ def test(config, model, test_loader):
     
     stat = torch.tensor([correct, total], dtype=torch.long).to(config.device)
     dist.reduce(stat, 0)
-    if config.rank == 0:
+    if not config.distributed or config.rank == 0:
         accuracy = 100 * stat[0] / stat[1]
         print("Accuracy: {:.2f}%".format(accuracy))

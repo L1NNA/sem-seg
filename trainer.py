@@ -136,4 +136,4 @@ def test(config, model, test_loader):
     dist.reduce(stat, 0)
     if config.rank == 0:
         accuracy = 100 * stat[0] / stat[1]
-        print("Accuracy: {2:.2f}%".format(accuracy))
+        print("Accuracy: {:.2f}%".format(accuracy))

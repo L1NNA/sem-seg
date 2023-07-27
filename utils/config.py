@@ -8,11 +8,11 @@ class Config:
         pass
 
         self.training:bool
+        self.testing:bool
         self.model:str
         self.model_name:str
         self.checkpoint:str
         self.seed:int
-        self.checkpoint:str
         
         self.data_path:str
         self.data:str

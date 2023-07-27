@@ -6,7 +6,7 @@ import torch
 
 from baselines import cats, cosformer, graphcodebert, transformer
 from data_loader import load_dataset, load_tokenizer
-from trainer import load_optimization, sequential_training, validation, test
+from trainer import load_optimization, train, test
 from utils.checkpoint import load, save
 from utils.config import Config
 from utils.distributed import distribute_dataset, setup_device, wrap_model
@@ -16,16 +16,17 @@ def define_argparser():
     parser = argparse.ArgumentParser(description='')
 
     # loading model
-    parser.add_argument('--training', action='store_true', help='status')
     parser.add_argument('--model', required=True, default='transformer',
                         choices=['transformer', 'cosFormer', 'cats', 'graphcodebert'],
-                        help='model name, options: [TBD]')
+                        help='model name')
     parser.add_argument('--model_name', type=str, required=True,
                         help='the name of weight files')
     parser.add_argument('--seed', type=int, default=42,
                         help='random seed')
     parser.add_argument('--checkpoint', type=str, default='./checkpoint',
                         help='checkpoint path')
+    parser.add_argument('--training', action='store_true', help='if training')
+    parser.add_argument('--testing', action='store_true', help='if testing')
 
     # data_loader
     parser.add_argument('--data_path', type=str, default='./data',
@@ -110,14 +111,15 @@ def main(arg=None):
     optimizer, scheduler = load_optimization(config, model)
 
     # load models
-    ep_init = load(config, model, optimizer, scheduler)
+    init_epoch = load(config, model, optimizer, scheduler)
     if config.training:
-        sequential_training(config, model, train_loader, val_loader,
-                            optimizer, scheduler, ep_init)
-        # if config.rank == 0:
-        #     save(config, model, optimizer, None)
+        train(config, model, train_loader, val_loader,
+                            optimizer, scheduler, init_epoch)
+        if config.rank == 0:
+            save(config, model, optimizer, scheduler)
 
-    test(config, model, test_loader)
+    if config.testing:
+        test(config, model, test_loader)
 
 if __name__ == "__main__":
     main()

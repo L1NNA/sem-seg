@@ -35,13 +35,13 @@ def load_optimization(config:Config, model):
     return optimizer, scheduler
 
 
-def sequential_training(config:Config, model:nn.Module,
-                        train_loader:DataLoader, val_loader:DataLoader,
-                        optimizer:optim.Optimizer,
-                        scheduler:Optional[optim.lr_scheduler._LRScheduler],
-                        init_epoch:int=0
-                        ):
-    # predict next token
+def train(
+        config:Config, model:nn.Module,
+        train_loader:DataLoader, val_loader:DataLoader,
+        optimizer:optim.Optimizer,
+        scheduler:Optional[optim.lr_scheduler._LRScheduler],
+        init_epoch:int=0
+    ):
     criterion = nn.CrossEntropyLoss()
 
     for epoch in range(init_epoch, config.epochs):

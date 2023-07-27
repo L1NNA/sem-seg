@@ -99,7 +99,8 @@ def validation(config, model, val_loader, train_loss, epoch):
             outputs = outputs[0]
         outputs = outputs[:, -1, :]
         y = y[:, -1]
-        predicted = torch.argmax(outputs, dim=1)
+        predicted = torch.argmax(
+            torch.softmax(outputs, dim=1), dim=1)
         total += y.size(0)
         correct += (predicted == y).sum().item()
     
@@ -128,7 +129,8 @@ def test(config, model, test_loader):
             outputs = outputs[0]
         outputs = outputs[:, -1, :]
         y = y[:, -1]
-        predicted = torch.argmax(outputs, dim=1)
+        predicted = torch.argmax(
+            torch.softmax(outputs, dim=1), dim=1)
         total += y.size(0)
         correct += (predicted == y).sum().item()
     

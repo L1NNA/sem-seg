@@ -12,6 +12,5 @@ test.ipynb
 .idea
 
 # cache files
-dest
 data
 checkpoints

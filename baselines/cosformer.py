@@ -60,7 +60,7 @@ class CosMultiHeadAttention(nn.Module):
         k = self.act_fun(k)
 
         # 2. cos transform
-        assert self.max_len > max(src_len, tgt_len)
+        assert self.max_len >= max(src_len, tgt_len)
         weight_index = self.weight_index.to(q.device)
         q_index = weight_index[:, :, :tgt_len, :]
         # batch_size x n_heads x seq_len x 2*d_q

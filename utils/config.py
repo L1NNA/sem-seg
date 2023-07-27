@@ -46,3 +46,4 @@ class Config:
         self.world_size:int
         self.rank:int
         self.local_rank:int
+        self.distributed:bool

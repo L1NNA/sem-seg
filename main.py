@@ -6,7 +6,7 @@ import torch
 
 from baselines import cats, cosformer, graphcodebert, transformer
 from data_loader import load_dataset, load_tokenizer
-from trainer import load_optimization, sequential_training
+from trainer import load_optimization, sequential_training, validation, test
 from utils.checkpoint import load, save
 from utils.config import Config
 from utils.distributed import distribute_dataset, setup_device, wrap_model
@@ -101,10 +101,10 @@ def main(arg=None):
     model = wrap_model(config, model)
 
     # load dataset
-    dataset = load_dataset(config)
-    train_dataset, val_dataset = torch.utils.data.random_split(dataset, [0.8, 0.2])
+    train_dataset, val_dataset, test_dataset = load_dataset(config)
     train_loader = distribute_dataset(config, train_dataset)
     val_loader = distribute_dataset(config, val_dataset)
+    test_loader = distribute_dataset(config, test_dataset)
     
     # load optimization
     optimizer, scheduler = load_optimization(config, model)
@@ -117,7 +117,7 @@ def main(arg=None):
         # if config.rank == 0:
         #     save(config, model, optimizer, None)
 
-    # TODO: test
+    test(config, model, test_loader)
 
 if __name__ == "__main__":
     main()

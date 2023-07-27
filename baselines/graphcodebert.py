@@ -33,12 +33,13 @@ class GraphCodeBERT(nn.Module):
         self.output = nn.Linear(bert_config.hidden_size, self.output_size)
 
     def forward(self, x:torch.Tensor):
-        attn_mask = create_masking(x.size(1), x.size(1))
+        attn_mask = create_masking(x.size(1), x.size(1), device=x.device) \
+            .unsqueeze(0)
         # start from 1 since 0 is for bos token
         position_idx = torch.arange(1, x.size(1) + 1,
                                     dtype=torch.long, device=x.device)
         y = self.encoder(x,
                          attention_mask=attn_mask,
-                         position_ids=position_idx)
+                         position_ids=position_idx).last_hidden_state
         y = self.output(y)
         return y

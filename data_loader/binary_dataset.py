@@ -1,12 +1,12 @@
 import glob
-import hashlib
-from os.path import join
+from os.path import join, basename, exists, getsize
+from time import sleep
 
-import torch
 import numpy as np
+import torch
 from torch.utils.data import Dataset
 
-from data_loader.setup_BPE import get_tokenizer
+from utils.config import Config
 
 
 class BinaryDataset(Dataset):
@@ -15,71 +15,64 @@ class BinaryDataset(Dataset):
     a segment boundary or not 
     """
 
-    def __init__(self, token_path, seq_len, max_len=100000):
-        tk_files = glob.glob(join(token_path, '*.tk'))
-        assert len(tk_files) > 0, 'No token files found'
-        tk_files.sort()
+    def __init__(self, config:Config, name, max_len=100000):
+        self.config = config
+        self.token_path = join(config.data_path, name)
+        self.seq_len = config.seq_len
         
-        self.data = {}
-        self.segments = []
-        self.seq_len = seq_len
+        self.max_len = max_len
+        self.cache_path = join(self.token_path, f'binary_{self.seq_len}.pt')
 
-        # apply bpe
-        tokenizer = get_tokenizer()
-        self.seq_token_id = tokenizer.sep_token_id
-        # load all files
-        for f in tk_files:
-            with open(f, 'r', encoding='utf-8') as content:
-                tokens = tokenizer.tokenize(content.read())
-                token_ids = tokenizer.convert_tokens_to_ids(tokens)
-                token_ids = BinaryDataset._prune_tokens(
-                    token_ids, tokenizer.sep_token_id) 
-                if len(token_ids) < seq_len + 1:
-                    continue
-                
-                # find sep tokens
-                indices = []
-                segments = []
-                for i in range(0, len(token_ids)-seq_len, seq_len):
-                    if token_ids[i:i+seq_len] \
-                     .find(tokenizer.sep_token_id) != -1:
-                        segments.append(i)
-                    else:
-                        indices.append(i)
-                # sample n elements from indices
-                # TODO make sure it's the same acorss all processes
-                indices = np.random.choice(indices, len(segments), replace=False)
-                segments.extend(indices)
-                # add segments to data
-                for i in segments:
-                    key = hashlib.md5(f'{f}-{i}'.encode()).hexdigest()
-                    self.data[key] = token_ids[i:i+seq_len]
-                    self.segments.append(key)
-                
-                if len(self.segments) > max_len:
-                    break
+        self.segments = []
+
+    def load_data(self):
+        
+        if exists(self.cache_path):
+            self.segments = torch.load(self.cache_path)
+            return
+
+        x_files = glob.glob(join(self.token_path, '*.x.pt'))
+        y_files = glob.glob(join(self.token_path, '*.y.pt'))
+        y_map = {basename(f)[:-5]:f for f in y_files}
+
+        true_labels = 0
+        for x_file in x_files:
+            x_name = basename(x_file)[:-5]
+            y_file = y_map[x_name]
+
+            x = torch.load(x_file)
+            y = torch.load(y_file)
+
+            if len(x) < self.seq_len:
+                continue
+
+            false_labels = []
+            # reverse to prevent padding
+            for i in range(len(x)-self.seq_len, -1, -self.seq_len):
+                if 1 in y[i:i+self.seq_len]:
+                    tokens = x[i:i+self.seq_len]
+                    self.segments.append((tokens, 1))
+                    true_labels += 1
+                else:
+                    false_labels.append(i)
+            if len(false_labels) > true_labels:
+                false_labels = np.random.choice(false_labels, true_labels)
+            true_labels -= len(false_labels)
+
+            for i in false_labels:
+                tokens = x[i:i+self.seq_len]
+                self.segments.append((tokens, 0))
+
+            if len(self.segments) > self.max_len:
+                break
+        np.random.shuffle(self.segments)
+        torch.save(self.segments, self.cache_path)
 
     def __len__(self):
         return len(self.segments)
 
     def __getitem__(self, index):
-        hash = self.segments[index]
-        tokens = self.data[hash]
-        is_sep = tokens.find(self.sep_token_id) != -1
+        tokens, label = self.segments[index]
         x = torch.tensor(tokens, dtype=torch.long)
-        y = torch.tensor([is_sep]).type(torch.int)
+        y = torch.tensor([label]).type(torch.long)
         return x, y
-
-    @staticmethod
-    def _prune_tokens(tokens, seq_token_id):
-        result = []
-        prev = None
-        for tk in tokens:
-            if tk == seq_token_id and \
-             (prev is None or prev == tk):
-                continue
-            result.append(tk)
-            prev = tk
-        if result[-1] != seq_token_id:
-            result.append(seq_token_id)
-        return result

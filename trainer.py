@@ -1,12 +1,14 @@
+from typing import Optional
+
+import numpy as np
 import torch
+import torch.distributed as dist
+from torch.distributed import ReduceOp
 import torch.nn as nn
 from torch import optim
-from typing import Optional
-import numpy as np
-from tqdm import tqdm
-
 from torch.utils.data import DataLoader
 from torch.utils.data.distributed import DistributedSampler
+from tqdm import tqdm
 
 from utils.config import Config
 
@@ -49,7 +51,6 @@ def sequential_training(config:Config, model:nn.Module,
         train_loss = []
 
         model.train()
-        mem = None
         for x, y in tqdm(train_loader, desc=f'Epoch {epoch}'):
 
             # zero the parameter gradients
@@ -61,7 +62,7 @@ def sequential_training(config:Config, model:nn.Module,
             if config.model == 'cats':
                 outputs, aux_loss = model(x)
             elif config.model == 'cosFormer':
-                outputs, mem = model(x, mem)
+                outputs, _ = model(x, None)
             else:
                 outputs = model(x)
             
@@ -75,31 +76,64 @@ def sequential_training(config:Config, model:nn.Module,
                 loss += aux_loss
             train_loss.append(loss.item())
 
-            # if (i + 1) % 100 == 0:
-            #     print("epoch: {0} | item: {1} | loss: {2:.7f}".format(epoch + 1, i + 1, loss.item()))
             loss.backward()
             optimizer.step()
+
         if scheduler is not None:
             scheduler.step()
 
+        validation(config, model, val_loader, train_loss, epoch)
+        train_loss.clear()
 
-        # Validation
 
-        model.eval()
-        correct = 0
-        total = 0
-        for x, y in val_loader:
-            x = x.to(config.device)
-            y = y.to(config.device)
+def validation(config, model, val_loader, train_loss, epoch):
+    model.eval()
+    correct = 0
+    total = 0
+    for x, y in val_loader:
+        x = x.to(config.device)
+        y = y.to(config.device)
 
-            outputs = model(x)
-            if config.model == 'cats':
-                outputs = outputs[0]
-            outputs = outputs[:, -1, :]
-            y = y[:, -1]
-            predicted = torch.argmax(outputs, dim=1)
-            total += y.size(0)
-            correct += (predicted == y).sum().item()
-        
-        train_loss = np.average(train_loss)
-        print("Epoch: {0} | Train Loss: {1:.7f} Accuracy: {2:.2f}%".format(epoch + 1, train_loss, 100 * correct / total))
+        outputs = model(x)
+        if config.model == 'cats':
+            outputs = outputs[0]
+        outputs = outputs[:, -1, :]
+        y = y[:, -1]
+        predicted = torch.argmax(outputs, dim=1)
+        total += y.size(0)
+        correct += (predicted == y).sum().item()
+    
+    
+    stat = torch.tensor([correct, total, np.sum(train_loss), len(train_loss)],
+                dtype=torch.float32).to(config.device)
+    dist.reduce(stat, 0)
+    if config.rank == 0:
+        accuracy = 100 * stat[0] / stat[1]
+        train_loss = stat[2] / stat[3]
+        print("Epoch: {0} | Train Loss: {1:.7f} Accuracy: {2:.2f}%" \
+                .format(epoch + 1, train_loss, accuracy))
+
+
+def test(config, model, test_loader):
+
+    model.eval()
+    correct = 0
+    total = 0
+    for x, y in test_loader:
+        x = x.to(config.device)
+        y = y.to(config.device)
+
+        outputs = model(x)
+        if config.model == 'cats':
+            outputs = outputs[0]
+        outputs = outputs[:, -1, :]
+        y = y[:, -1]
+        predicted = torch.argmax(outputs, dim=1)
+        total += y.size(0)
+        correct += (predicted == y).sum().item()
+    
+    stat = torch.tensor([correct, total], dtype=torch.long).to(config.device)
+    dist.reduce(stat, 0)
+    if config.rank == 0:
+        accuracy = 100 * stat[0] / stat[1]
+        print("Accuracy: {2:.2f}%".format(accuracy))

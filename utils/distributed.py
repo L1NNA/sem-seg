@@ -11,10 +11,12 @@ def setup_device(config:Config):
         config.device = torch.device("cpu")
         config.world_size = 0
         config.rank = 0
+        config.distributed = False
         return
     elif config.local_rank > -1 or torch.cuda.device_count() == 1:
         config.world_size = 1
         config.rank = config.local_rank if config.local_rank > -1 else 0
+        config.distributed = False
     else:
         dist.init_process_group(
             backend='nccl',
@@ -23,18 +25,17 @@ def setup_device(config:Config):
 
         config.rank = dist.get_rank()
         config.world_size = dist.get_world_size()
+        config.distributed = True
 
     torch.cuda.set_device(config.rank)
     config.device = torch.device("cuda", config.rank)
 
 def distribute_dataset(config:Config, dataset):
-    is_distributed = config.world_size > 1
-    sampler = DistributedSampler(dataset) if is_distributed else None
-    dataloader = DataLoader(dataset, num_workers=config.num_workers,
-                            batch_size=config.batch_size,
-                            shuffle=not is_distributed,
-                            sampler=sampler)
-    return dataloader
+    sampler = DistributedSampler(dataset) if config.distributed else None
+    return DataLoader(dataset, num_workers=config.num_workers,
+                      batch_size=config.batch_size,
+                      shuffle=not config.distributed,
+                      sampler=sampler)
 
 def wrap_model(args:Config, model):
     model = model.to(args.device)

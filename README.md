@@ -14,4 +14,5 @@ pip install -r requirements.txt
 
 ### TODO
 - [ ] review CATS
-- [ ] Optimize data loader: add Tokenizer
+- [ ] Optimize data loader: more data and sync dataset
+- [ ] predicter: add Tokenizer & predicter

@@ -16,22 +16,26 @@ def load_checkpoint(path, model, optimizer, scheduler):
 
 def load(config:Config, model, optimizer, scheduler):
     init_epoch = 0
-    checkpoint = os.path.join(config.checkpoint, config.model_name)
+    checkpoint = os.path.join(config.checkpoint, config.model_name + '.pt')
     if os.path.exists(checkpoint):
         try:
             init_epoch = load_checkpoint(
                 checkpoint, model, optimizer, scheduler
             )
+            print('Checkpoint loaded')
         except Exception as e:
             print('Failed to load checkpoint for', model, e)
     return init_epoch
 
 def save(config:Config, model, optimizer, scheduler):
-    checkpoint = os.path.join(config.checkpoint, config.model_name)
+    if not os.path.exists(config.checkpoint):
+        return
+    checkpoint = os.path.join(config.checkpoint, config.model_name + '.pt')
     state = dict()
-    state["epoch"] = config.epochs + 1
+    state["epoch"] = config.epochs
     state["model"] = model.state_dict()
     state["optimizer"] = optimizer.state_dict()
     if scheduler is not None:
         state["scheduler_epoch"] = scheduler.last_epoch
     torch.save(state, checkpoint)
+    print('Checkpoint saved')

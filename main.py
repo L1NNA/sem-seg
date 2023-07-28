@@ -126,7 +126,7 @@ def main(arg=None):
     if config.training:
         train(config, model, train_loader, val_loader,
                             optimizer, scheduler, init_epoch)
-        if not config.distributed or config.rank == 0:
+        if config.is_host:
             save(config, model, optimizer, scheduler)
 
     # testing

@@ -42,7 +42,6 @@ def wrap_model(args:Config, model):
     model = model.to(args.device)
     if args.world_size > 1:
         model = DDP(
-            model,
-            find_unused_parameters=True
+            model
         )
     return model

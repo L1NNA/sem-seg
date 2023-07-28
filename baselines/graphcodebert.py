@@ -28,18 +28,15 @@ class GraphCodeBERT(nn.Module):
 
         bert_config = RobertaConfig.from_pretrained(GRAPH_CODE_BERT)
         self.encoder = RobertaModel.from_pretrained(GRAPH_CODE_BERT,
-                                                    config=bert_config)
+                                                    config=bert_config,
+                                                    add_pooling_layer=False)
 
         self.output = nn.Linear(bert_config.hidden_size, self.output_size)
 
     def forward(self, x:torch.Tensor):
-        attn_mask = create_masking(x.size(1), x.size(1), device=x.device) \
-            .unsqueeze(0)
         # start from 1 since 0 is for bos token
         position_idx = torch.arange(1, x.size(1) + 1,
-                                    dtype=torch.long, device=x.device)
-        y = self.encoder(x,
-                         attention_mask=attn_mask,
-                         position_ids=position_idx).last_hidden_state
+            dtype=torch.long, device=x.device)
+        y = self.encoder(x, position_ids=position_idx).last_hidden_state
         y = self.output(y)
         return y

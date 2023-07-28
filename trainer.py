@@ -3,7 +3,6 @@ from typing import Optional
 import numpy as np
 import torch
 import torch.distributed as dist
-from torch.distributed import ReduceOp
 import torch.nn as nn
 from torch import optim
 from torch.utils.data import DataLoader
@@ -51,7 +50,9 @@ def train(
         train_loss = []
 
         model.train()
-        for x, y in tqdm(train_loader, desc=f'Epoch {epoch}'):
+        iterator = tqdm(train_loader, desc=f'Epoch {epoch}') \
+            if config.is_host else train_loader
+        for x, y in iterator:
 
             # zero the parameter gradients
             optimizer.zero_grad()
@@ -82,10 +83,11 @@ def train(
             scheduler.step()
 
         validation(config, model, val_loader, train_loss, epoch)
+        dist.barrier()
         train_loss.clear()
 
 
-def validation(config, model, val_loader, train_loss, epoch):
+def validation(config:Config, model, val_loader, train_loss, epoch):
     model.eval()
     correct = 0
     total = 0
@@ -108,7 +110,7 @@ def validation(config, model, val_loader, train_loss, epoch):
     stat = torch.tensor([correct, total, np.sum(train_loss), len(train_loss)],
                 dtype=torch.float32).to(config.device)
     dist.reduce(stat, 0)
-    if not config.distributed or config.rank == 0:
+    if config.is_host:
         accuracy = 100 * stat[0] / stat[1]
         train_loss = stat[2] / stat[3]
         print("Epoch: {0} | Train Loss: {1:.7f} Accuracy: {2:.2f}%" \

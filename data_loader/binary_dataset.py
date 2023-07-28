@@ -1,6 +1,5 @@
 import glob
-from os.path import join, basename, exists, getsize
-from time import sleep
+from os.path import join, basename, exists
 
 import numpy as np
 import torch
@@ -21,14 +20,17 @@ class BinaryDataset(Dataset):
         self.seq_len = config.seq_len
         
         self.max_len = max_len
-        self.cache_path = join(self.token_path, f'binary_{self.seq_len}.pt')
+        self.cache_path = join(config.data_path, 'cache',
+            name, f'binary_{self.seq_len}.pt')
 
         self.segments = []
 
     def load_data(self):
         
         if exists(self.cache_path):
-            self.segments = torch.load(self.cache_path)
+            return
+        
+        if not self.config.is_host:
             return
 
         x_files = glob.glob(join(self.token_path, '*.x.pt'))
@@ -67,6 +69,12 @@ class BinaryDataset(Dataset):
                 break
         np.random.shuffle(self.segments)
         torch.save(self.segments, self.cache_path)
+
+    def load_cache(self):
+        assert exists(self.cache_path), 'cache not found'
+        if len(self.segments) > 0:
+            return
+        self.segments = torch.load(self.cache_path)
 
     def __len__(self):
         return len(self.segments)

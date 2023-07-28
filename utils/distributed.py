@@ -31,7 +31,8 @@ def setup_device(config:Config):
     config.device = torch.device("cuda", config.rank)
 
 def distribute_dataset(config:Config, dataset):
-    sampler = DistributedSampler(dataset) if config.distributed else None
+    sampler = DistributedSampler(dataset, drop_last=True) \
+        if config.distributed else None
     return DataLoader(dataset, num_workers=config.num_workers,
                       batch_size=config.batch_size,
                       shuffle=not config.distributed,

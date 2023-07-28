@@ -124,7 +124,6 @@ def main(arg=None):
 
     # training
     if config.training:
-        print('>>>>>>>start training<<<<<<<')
         train(config, model, train_loader, val_loader,
                             optimizer, scheduler, init_epoch)
         if not config.distributed or config.rank == 0:
@@ -132,7 +131,6 @@ def main(arg=None):
 
     # testing
     if config.testing:
-        print('>>>>>>>start testing<<<<<<<')
         test(config, model, test_loader)
 
 if __name__ == "__main__":

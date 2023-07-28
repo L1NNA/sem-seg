@@ -65,12 +65,11 @@ def train(
                 outputs = model(x)
             
             if config.data == 'binary':
-                if config.model == 'cosFormer':
+                if config.model == 'cats':
                     outputs = torch.mean(outputs, dim=1)
                 else:
-                    outputs = outputs = outputs[:, -1, :]
-                outputs = outputs[:, -1, :]
-            outputs = outputs.reshape(-1, outputs.shape[-1])
+                    outputs = outputs[:, -1, :]
+            outputs = outputs.reshape(-1, outputs.size(-1))
             y = y.reshape(-1)
 
             loss = criterion(outputs, y)

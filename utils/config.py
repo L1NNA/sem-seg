@@ -34,8 +34,8 @@ class Config:
         # cosformer
         self.cos_act:str
         # cats
+        self.n_windows:int
         self.w_layers:int
-        self.coherence_hinge_margin:float
 
         # self.itr:int
         self.epochs:int

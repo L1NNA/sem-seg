@@ -59,21 +59,21 @@ def train(
             x = x.to(config.device)
             y:torch.Tensor = y.to(config.device)
 
-            if config.model == 'cats':
-                outputs, aux_loss = model(x)
-            elif config.model == 'cosFormer':
+            if config.model == 'cosFormer':
                 outputs, _ = model(x, None)
             else:
                 outputs = model(x)
             
             if config.data == 'binary':
+                if config.model == 'cosFormer':
+                    outputs = torch.mean(outputs, dim=1)
+                else:
+                    outputs = outputs = outputs[:, -1, :]
                 outputs = outputs[:, -1, :]
             outputs = outputs.reshape(-1, outputs.shape[-1])
             y = y.reshape(-1)
 
             loss = criterion(outputs, y)
-            if config.model == 'cats':
-                loss += aux_loss
             train_loss.append(loss.item())
 
             loss.backward()
@@ -96,8 +96,9 @@ def validation(config, model, val_loader, train_loss, epoch):
 
         outputs = model(x)
         if config.model == 'cats':
-            outputs = outputs[0]
-        outputs = outputs[:, -1, :]
+            outputs = torch.mean(outputs, dim=1)
+        else:
+            outputs = outputs[:, -1, :]
         y = y[:, -1]
         predicted = torch.argmax(
             torch.softmax(outputs, dim=1), dim=1)

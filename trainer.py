@@ -126,8 +126,9 @@ def test(config, model, test_loader):
 
         outputs = model(x)
         if config.model == 'cats':
-            outputs = outputs[0]
-        outputs = outputs[:, -1, :]
+            outputs = torch.mean(outputs, dim=1)
+        else:
+            outputs = outputs[:, -1, :]
         y = y[:, -1]
         predicted = torch.argmax(
             torch.softmax(outputs, dim=1), dim=1)

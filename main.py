@@ -17,7 +17,7 @@ def define_argparser():
 
     # loading model
     parser.add_argument('--model', required=True, default='transformer',
-                        choices=['transformer', 'cosFormer', 'cats', 'graphcodebert'],
+                        choices=['transformer', 'cosformer', 'cats', 'graphcodebert'],
                         help='model name')
     parser.add_argument('--model_id', type=str, required=True,
                         help='the unique name of the current model')
@@ -92,7 +92,7 @@ def main(arg=None):
     # load model
     models = {
         'transformer': transformer.Transformer,
-        'cosFormer': cosformer.Cosformer,
+        'cosformer': cosformer.Cosformer,
         'cats': cats.CATS,
         'graphcodebert': graphcodebert.GraphCodeBERT,
     }
@@ -125,7 +125,7 @@ def main(arg=None):
     # training
     if config.training:
         train(config, model, train_loader, val_loader,
-                            optimizer, scheduler, init_epoch)
+            optimizer, scheduler, init_epoch)
         if config.is_host:
             save(config, model, optimizer, scheduler)
 

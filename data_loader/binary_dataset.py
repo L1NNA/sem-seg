@@ -21,7 +21,7 @@ class BinaryDataset(Dataset):
         
         self.max_len = max_len
         self.cache_path = join(config.data_path, 'cache',
-            name, f'binary_{self.seq_len}.pt')
+            f'{name}_binary_{self.seq_len}.pt')
 
         self.segments = []
 

@@ -14,9 +14,12 @@ DATASET_MAP = {
 
 
 def _load_all(clazz, config:Config):
-    train = clazz(config, 'train')
-    valid = clazz(config, 'valid')
-    test = clazz(config, 'test')
+    train, valid, test = None, None, None
+    if config.training:
+        train = clazz(config, 'train')
+        valid = clazz(config, 'valid')
+    if config.testing:
+        test = clazz(config, 'test')
     return train, valid, test
 
 def _load_cache(dataset):

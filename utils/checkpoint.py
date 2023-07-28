@@ -22,9 +22,11 @@ def load(config:Config, model, optimizer, scheduler):
             init_epoch = load_checkpoint(
                 checkpoint, model, optimizer, scheduler
             )
-            print('Checkpoint loaded')
+            if config.is_host:
+                print('Checkpoint loaded')
         except Exception as e:
-            print('Failed to load checkpoint for', model, e)
+            if config.is_host:
+                print('Failed to load checkpoint for', model, e)
     return init_epoch
 
 def save(config:Config, model, optimizer, scheduler):
@@ -38,4 +40,5 @@ def save(config:Config, model, optimizer, scheduler):
     if scheduler is not None:
         state["scheduler_epoch"] = scheduler.last_epoch
     torch.save(state, checkpoint)
-    print('Checkpoint saved')
+    if config.is_host:
+        print('Checkpoint saved')

@@ -4,6 +4,7 @@ from os.path import join, basename, exists
 import numpy as np
 import torch
 from torch.utils.data import Dataset
+from tqdm import tqdm
 
 from utils.config import Config
 
@@ -14,14 +15,14 @@ class BinaryDataset(Dataset):
     a segment boundary or not 
     """
 
-    def __init__(self, config:Config, name, max_len=100000):
+    def __init__(self, config:Config, name, max_len=500000):
         self.config = config
         self.token_path = join(config.data_path, name)
         self.seq_len = config.seq_len
         
         self.max_len = max_len
         self.cache_path = join(config.data_path, 'cache',
-            f'{name}_binary_{self.seq_len}.pt')
+            f'{name}_binary_{self.seq_len}_{max_len}.pt')
 
         self.segments = []
 
@@ -38,7 +39,9 @@ class BinaryDataset(Dataset):
         y_map = {basename(f)[:-5]:f for f in y_files}
 
         true_labels = 0
-        for x_file in x_files:
+        np.random.shuffle(x_files)
+        print('Loading dataset')
+        for x_file in tqdm(x_files):
             x_name = basename(x_file)[:-5]
             y_file = y_map[x_name]
 

@@ -60,7 +60,7 @@ def train(
             x = x.to(config.device)
             y:torch.Tensor = y.to(config.device)
 
-            if config.model == 'cosFormer':
+            if config.model == 'cosformer':
                 outputs, _ = model(x, None)
             else:
                 outputs = model(x)
@@ -95,7 +95,11 @@ def validation(config:Config, model, val_loader, train_loss, epoch):
         x = x.to(config.device)
         y = y.to(config.device)
 
-        outputs = model(x)
+        if config.model == 'cosformer':
+            outputs, _ = model(x, None)
+        else:
+            outputs = model(x)
+        
         if config.model == 'cats':
             outputs = torch.mean(outputs, dim=1)
         else:
@@ -126,7 +130,11 @@ def test(config, model, test_loader):
         x = x.to(config.device)
         y = y.to(config.device)
 
-        outputs = model(x)
+        if config.model == 'cosformer':
+            outputs, _ = model(x, None)
+        else:
+            outputs = model(x)
+        
         if config.model == 'cats':
             outputs = torch.mean(outputs, dim=1)
         else:

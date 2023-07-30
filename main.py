@@ -37,6 +37,8 @@ def define_argparser():
                         help='number of workers')
     parser.add_argument('--batch_size', type=int, default=32,
                         help='batch size of train input data')
+    parser.add_argument('--test_batch_size', type=int, default=16,
+                        help='batch size of validation & tese input data')
     parser.add_argument('--seq_len', type=int, default=512,
                         help='input sequence length')
     parser.add_argument('--mem_len', type=int, default=1024,
@@ -112,9 +114,9 @@ def main(arg=None):
 
     # load dataset
     train_dataset, val_dataset, test_dataset = load_dataset(config)
-    train_loader = distribute_dataset(config, train_dataset)
-    val_loader = distribute_dataset(config, val_dataset)
-    test_loader = distribute_dataset(config, test_dataset)
+    train_loader = distribute_dataset(config, train_dataset, config.batch_size)
+    val_loader = distribute_dataset(config, val_dataset, config.test_batch_size)
+    test_loader = distribute_dataset(config, test_dataset, config.test_batch_size)
     
     # load optimization
     optimizer, scheduler = load_optimization(config, model)

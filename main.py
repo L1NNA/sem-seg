@@ -29,6 +29,8 @@ def define_argparser():
                         help='checkpoint path')
     parser.add_argument('--training', action='store_true', help='if training')
     parser.add_argument('--testing', action='store_true', help='if testing')
+    parser.add_argument('--segmentation', type=str, default=None,
+                        help='if to segment a file')
 
     # data_loader
     parser.add_argument('--data_path', type=str, default='./data',
@@ -97,7 +99,7 @@ def load_config(arg=None):
     return config
 
 
-def load_model(config:Config):
+def load_model(config:Config, output_dim):
     # load model
     models = {
         'transformer': transformer.Transformer,
@@ -107,7 +109,7 @@ def load_model(config:Config):
     }
 
     setup_device(config)
-    model = models[config.model](config)
+    model = models[config.model](config, output_dim)
     model = wrap_model(config, model)
 
     if not config.model_name:
@@ -124,21 +126,23 @@ def load_model(config:Config):
 
 def main(arg=None):
     config:Config = load_config(arg)
-    model = load_model(config)
-
+    
     # load dataset
-    train_dataset, val_dataset, test_dataset = load_dataset(config)
+    train_dataset, val_dataset, test_dataset, output_dim = load_dataset(config)
     train_loader = distribute_dataset(config, train_dataset, config.batch_size)
     val_loader = distribute_dataset(config, val_dataset, config.test_batch_size)
     test_loader = distribute_dataset(config, test_dataset, config.test_batch_size)
-    
+
+    # load model
+    model = load_model(config, output_dim)
+
     # load optimization
     if config.training:
         optimizer, scheduler = load_optimization(config, model)
     else:
         optimizer, scheduler = None, None
 
-    # load models
+    # load checkpoint
     init_epoch = load(config, model, optimizer, scheduler)
 
     # training
@@ -151,6 +155,8 @@ def main(arg=None):
     # testing
     if config.testing:
         test(config, model, test_loader)
+
+    # inference
 
 if __name__ == "__main__":
     main()

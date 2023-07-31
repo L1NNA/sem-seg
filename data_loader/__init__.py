@@ -8,8 +8,8 @@ from .setup_BPE import get_tokenizer
 
 
 DATASET_MAP = {
-    'seq': SeqDataset,
-    'binary': BinaryDataset
+    'seq': (SeqDataset, lambda config: config.vocab_size),
+    'binary': (BinaryDataset, lambda _: 2),
 }
 
 
@@ -22,23 +22,25 @@ def _load_all(clazz, config:Config):
         test = clazz(config, 'test')
     return train, valid, test
 
-def _load_cache(dataset):
+def _load_cache(dataset, config:Config):
     if dataset is None:
         return
     dataset.load_data()
-    dist.barrier()
+    if config.distributed:
+        dist.barrier()
     # check if dataset has load_cache method
     if hasattr(dataset, 'load_cache'):
         dataset.load_cache()
-    dist.barrier()
+    if config.distributed:
+        dist.barrier()
 
 def load_dataset(config:Config):
-    clazz = DATASET_MAP[config.data]
+    clazz, get_output_dim = DATASET_MAP[config.data]
     train, valid, test = _load_all(clazz, config)
-    _load_cache(train)
-    _load_cache(valid)
-    _load_cache(test)
-    return train, valid, test
+    _load_cache(train, config)
+    _load_cache(valid, config)
+    _load_cache(test, config)
+    return train, valid, test, get_output_dim(config)
 
 def load_tokenizer(config:Config):
     tokenizer = get_tokenizer()

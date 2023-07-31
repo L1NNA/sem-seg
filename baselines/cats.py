@@ -10,7 +10,6 @@ import torch.nn as nn
 
 from utils.config import Config
 from layers.embeddings import PositionalEncoding
-from data_loader.setup_BPE import get_tokenizer
 from baselines.transformer import TransformerLayer
 from layers.masking import create_masking
 
@@ -25,10 +24,11 @@ def add_args(args):
 
 class CATS(nn.Module):
     
-    def __init__(self, config:Config):
+    def __init__(self, config:Config, output_dim):
         super(CATS, self).__init__()
         self.config = config
-        self.output_size = config.vocab_size if config.data == 'seq' else 2
+        assert output_dim == 2, "CATS only supports binary classification"
+        self.output_size = output_dim
         self.w = config.n_windows
         assert config.seq_len % self.w == 0, \
             "seq_len must be divisible by n_windows"

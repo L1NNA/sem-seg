@@ -7,15 +7,10 @@ Use conda to manage environments
 ```shell script
 conda create -n sem_seg python=3.8
 conda activate sem_seg
-# Install pytorch
-pip install numpy pytorch
+# Install pytorch with cuda
+pip install numpy scikit-learn # tools
+pip install transformers # baselines
 ```
-
-Baselines & Tokenizer
-```bash
-pip install transformers scikit-learn
-```
-
 
 ### TODO
 - [x] Optimize data loader: more data and sync dataset

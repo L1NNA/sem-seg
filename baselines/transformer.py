@@ -93,7 +93,7 @@ class TransformerLayer(nn.Module):
 
 class Transformer(nn.Module):
 
-    def __init__(self, args:Config) -> None:
+    def __init__(self, args:Config, output_dim) -> None:
         super(Transformer, self).__init__()
 
         self.n_heads = args.n_heads
@@ -102,7 +102,7 @@ class Transformer(nn.Module):
         self.dropout = args.dropout
         self.d_ff = args.d_ff
         self.vocab_size = args.vocab_size
-        self.output_size = args.vocab_size if args.data == 'seq' else 2
+        self.output_size = output_dim
         
         self.embedding = nn.Embedding(self.vocab_size, self.d_model)
         self.embedding_scale = math.sqrt(self.d_model)

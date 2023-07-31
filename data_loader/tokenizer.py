@@ -4,7 +4,6 @@ from typing import List, Iterator
 import torch
 
 from utils.config import Config
-from main import load_model
 from utils.checkpoint import load_checkpoint
 from data_loader.setup_BPE import get_tokenizer
 
@@ -13,9 +12,8 @@ from tqdm import tqdm
 
 class Tokenizer:
 
-    def __init__(self, config:Config):
+    def __init__(self, config:Config, model):
         self.config:Config = config
-        self.model = load_model(config)
         checkpoint = join(config.checkpoint, config.model_name + '.pt')
         load_checkpoint(checkpoint, self.model, None, None)
         self.tokens:List[str] = None

@@ -114,7 +114,7 @@ class TransformerLayer(nn.Module):
 
 class Cosformer(nn.Module):
 
-    def __init__(self, args:Config) -> None:
+    def __init__(self, args:Config, output_dim) -> None:
         super(Cosformer, self).__init__()
 
         self.n_heads = args.n_heads
@@ -125,7 +125,7 @@ class Cosformer(nn.Module):
         self.mem_len = args.mem_len
         self.max_len = max(args.seq_len, args.mem_len)
         self.vocab_size = args.vocab_size
-        self.output_size = args.vocab_size if args.data == 'seq' else 2
+        self.output_size = output_dim
         
         self.embedding = nn.Embedding(self.vocab_size, self.d_model)
         self.embedding_scale = math.sqrt(self.d_model)

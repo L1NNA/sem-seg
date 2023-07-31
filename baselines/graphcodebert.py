@@ -7,24 +7,26 @@ import torch.nn as nn
 from transformers import RobertaConfig, RobertaModel
 
 from data_loader.setup_BPE import GRAPH_CODE_BERT
-from layers.masking import create_masking
 from utils.config import Config
 
 
 def add_args(_):
-    # vocab_size=50265
-    # d_model=768
-    # num_layers=12
-    # num_heads=12
-    # d_ff=3072
     pass
 
 class GraphCodeBERT(nn.Module):
+    """
+    the hyperparameters are fixed as the following
+    vocab_size=50265
+    d_model=768
+    num_layers=12
+    num_heads=12
+    d_ff=3072
+    """
 
-    def __init__(self, config:Config) -> None:
+    def __init__(self, config:Config, output_dim) -> None:
         super(GraphCodeBERT, self).__init__()
         self.config = config
-        self.output_size = config.vocab_size if config.data == 'seq' else 2
+        self.output_size = output_dim
 
         bert_config = RobertaConfig.from_pretrained(GRAPH_CODE_BERT)
         self.encoder = RobertaModel.from_pretrained(GRAPH_CODE_BERT,

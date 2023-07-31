@@ -52,3 +52,4 @@ class Config:
         self.rank:int
         self.local_rank:int
         self.is_host:bool
+        self.distributed:bool

@@ -81,7 +81,8 @@ def train(
             scheduler.step()
 
         validation(config, model, val_loader, train_loss, epoch)
-        dist.barrier()
+        if config.distributed:
+            dist.barrier()
         train_loss.clear()
 
 
@@ -108,7 +109,8 @@ def validation(config:Config, model, val_loader, train_loss, epoch):
     
     stat = torch.tensor([correct, total, np.sum(train_loss), len(train_loss)],
                 dtype=torch.float32).to(config.device)
-    dist.reduce(stat, 0)
+    if config.distributed:
+        dist.reduce(stat, 0)
     if config.is_host:
         accuracy = 100 * stat[0] / stat[1]
         train_loss = stat[2] / stat[3]
@@ -148,28 +150,28 @@ def test(config:Config, model, test_loader):
         predictions = predicted if predictions is None \
             else torch.cat((predictions, predicted))
     
-    
-    
-    int_stats = [
+    if config.distributed:
+        int_stats = [
         torch.zeros(2, labels.size(0), dtype=torch.long).to(config.device) \
-        for _ in range(config.world_size)
-    ] if config.is_host else None
-    float_stats = [
-        torch.zeros(logits.size(0), dtype=torch.float32).to(config.device) \
-        for _ in range(config.world_size)
-    ] if config.is_host else None
-    int_values = torch.stack((predictions, labels)).to(config.device)
-    logits = logits.to(config.device)
-    dist.gather(int_values, int_stats, 0)
-    dist.gather(logits, float_stats, 0)
+            for _ in range(config.world_size)
+        ] if config.is_host else None
+        float_stats = [
+            torch.zeros(logits.size(0), dtype=torch.float32).to(config.device) \
+            for _ in range(config.world_size)
+        ] if config.is_host else None
+        int_values = torch.stack((predictions, labels)).to(config.device)
+        logits = logits.to(config.device)
+        dist.gather(int_values, int_stats, 0)
+        dist.gather(logits, float_stats, 0)
+
+        if config.is_host:
+            stat = torch.cat(int_stats, dim=1)
+            predictions = stat[0]
+            labels = stat[1]
+            logits = torch.cat(float_stats)
 
     if config.is_host:
-        stat = torch.cat(int_stats, dim=1)
-        predictions = stat[0]
-        labels = stat[1]
-        logits = torch.cat(float_stats)
-
-        total = labels.size(0) * config.world_size
+        total = labels.size(0)
         accuracy, recall, precision = confusion(labels, predictions)
         auroc = calculate_auroc(labels, logits)
 

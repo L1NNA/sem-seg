@@ -10,6 +10,7 @@ from torch.utils.data.distributed import DistributedSampler
 from tqdm import tqdm
 
 from utils.config import Config
+from utils.metrics import confusion, calculate_auroc
 
 
 def load_optimization(config:Config, model):
@@ -60,10 +61,7 @@ def train(
             x = x.to(config.device)
             y:torch.Tensor = y.to(config.device)
 
-            if config.model == 'cosformer':
-                outputs, _ = model(x, None)
-            else:
-                outputs = model(x)
+            outputs = model(x)
             
             if config.data == 'binary':
                 if config.model == 'cats':
@@ -95,10 +93,7 @@ def validation(config:Config, model, val_loader, train_loss, epoch):
         x = x.to(config.device)
         y = y.to(config.device)
 
-        if config.model == 'cosformer':
-            outputs, _ = model(x, None)
-        else:
-            outputs = model(x)
+        outputs = model(x)
         
         if config.model == 'cats':
             outputs = torch.mean(outputs, dim=1)
@@ -125,46 +120,59 @@ def test(config:Config, model, test_loader):
 
     model.eval()
     
-    predictions = None
     labels = None
+    logits = None
+    predictions = None
 
     for x, y in test_loader:
         x = x.to(config.device)
         y = y.to(config.device)
 
-        if config.model == 'cosformer':
-            outputs, _ = model(x, None)
-        else:
-            outputs = model(x)
+        outputs = model(x)
         
         if config.model == 'cats':
             outputs = torch.mean(outputs, dim=1)
         else:
             outputs = outputs[:, -1, :]
+
         y = y[:, -1]
-        predicted = torch.softmax(outputs, dim=1)[:, -1]
-        
+        probs = torch.softmax(outputs, dim=1)
+        predicted = torch.argmax(probs, dim=1)
+
+        y = y.detach().cpu()
+        probs = probs.detach().cpu()[:, 1]
+        predicted = predicted.detach().cpu()
+
+        labels = y if labels is None else torch.cat((labels, y))
+        logits = probs if logits is None else torch.cat([logits, probs])
         predictions = predicted if predictions is None \
             else torch.cat((predictions, predicted))
-        labels = y if labels is None else torch.cat((labels, y))
     
-    total = labels.size(0) * config.world_size
-    stat = torch.zeros(2, total, dtype=torch.long).to(config.device)
-    dist.gather(stat, [torch.stack(predictions, labels)], 0)
+    
+    
+    int_stats = [
+        torch.zeros(2, labels.size(0), dtype=torch.long).to(config.device) \
+        for _ in range(config.world_size)
+    ] if config.is_host else None
+    float_stats = [
+        torch.zeros(logits.size(0), dtype=torch.float32).to(config.device) \
+        for _ in range(config.world_size)
+    ] if config.is_host else None
+    int_values = torch.stack((predictions, labels)).to(config.device)
+    logits = logits.to(config.device)
+    dist.gather(int_values, int_stats, 0)
+    dist.gather(logits, float_stats, 0)
+
     if config.is_host:
+        stat = torch.cat(int_stats, dim=1)
         predictions = stat[0]
         labels = stat[1]
-        
-        true_lables = torch.sum(labels).item()
-        false_lables = total - true_lables
-        true_positives = torch.sum(predictions * labels).item()
-        false_positives = torch.sum(predictions * (1 - labels)).item()
-        false_negatives = torch.sum((1 - predictions) * labels).item()
+        logits = torch.cat(float_stats)
 
-        precision = true_positives / (true_positives + false_positives)
-        recall = true_positives / (true_positives + false_negatives)
-        auroc = (true_positives / true_lables + false_positives / false_lables) / 2
-        accuracy = 100 * (true_positives + false_negatives) / total
+        total = labels.size(0) * config.world_size
+        accuracy, recall, precision = confusion(labels, predictions)
+        auroc = calculate_auroc(labels, logits)
 
-        print("Accuracy: {:.2f}%, Precision {1:.2f}, Recall {2:.2f}, AUCROC: {3:.2f}"\
-              .format(accuracy, precision, recall, auroc))
+        print("Accuracy: {:.2f}%, Precision: {:.2f}, Recall: {:.2f}, AUCROC: {:2f}, Total: {}"\
+              .format(accuracy, precision, recall, auroc, total))
+

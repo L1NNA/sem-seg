@@ -15,14 +15,14 @@ class BinaryDataset(Dataset):
     a segment boundary or not 
     """
 
-    def __init__(self, config:Config, name, max_len=500000):
+    def __init__(self, config:Config, name):
         self.config = config
         self.token_path = join(config.data_path, name)
         self.seq_len = config.seq_len
         
-        self.max_len = max_len
+        self.max_samples = config.max_samples
         self.cache_path = join(config.data_path, 'cache',
-            f'{name}_binary_{self.seq_len}_{max_len}.pt')
+            f'{name}_binary_{self.seq_len}_{self.max_samples}.pt')
 
         self.segments = []
 
@@ -68,7 +68,7 @@ class BinaryDataset(Dataset):
                 tokens = x[i:i+self.seq_len]
                 self.segments.append((tokens, 0))
 
-            if len(self.segments) > self.max_len:
+            if len(self.segments) > self.max_samples:
                 break
         np.random.shuffle(self.segments)
         torch.save(self.segments, self.cache_path)

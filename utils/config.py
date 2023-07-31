@@ -23,6 +23,7 @@ class Config:
         self.batch_size:int
         self.test_batch_size:int
         self.seq_len:int
+        self.max_samples:int
         self.mem_len:int
         self.num_workers:int
 

@@ -6,7 +6,7 @@ import torch
 
 from baselines import cats, cosformer, graphcodebert, transformer
 from data_loader import load_dataset, load_tokenizer
-from trainer import load_optimization, train, test
+from utils.trainer import load_optimization, train, test
 from utils.checkpoint import load, save
 from utils.config import Config
 from utils.distributed import distribute_dataset, setup_device, wrap_model
@@ -42,6 +42,8 @@ def define_argparser():
     parser.add_argument('--test_batch_size', type=int, default=16,
                         help='batch size of validation & tese input data')
     parser.add_argument('--seq_len', type=int, default=512,
+                        help='input sequence length')
+    parser.add_argument('--max_samples', type=int, default=100000,
                         help='input sequence length')
     parser.add_argument('--mem_len', type=int, default=1024,
                         help='memory sequence length')
@@ -131,7 +133,10 @@ def main(arg=None):
     test_loader = distribute_dataset(config, test_dataset, config.test_batch_size)
     
     # load optimization
-    optimizer, scheduler = load_optimization(config, model)
+    if config.training:
+        optimizer, scheduler = load_optimization(config, model)
+    else:
+        optimizer, scheduler = None, None
 
     # load models
     init_epoch = load(config, model, optimizer, scheduler)

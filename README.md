@@ -13,7 +13,7 @@ pip install numpy pytorch
 
 Baselines & Tokenizer
 ```bash
-pip install transformers
+pip install transformers scikit-learn
 ```
 
 

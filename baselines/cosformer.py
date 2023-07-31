@@ -136,15 +136,9 @@ class Cosformer(nn.Module):
         ])
         self.output = nn.Linear(self.d_model, self.output_size)
 
-    def forward(self, x, mem=None):
+    def forward(self, x):
         x = self.embedding(x) * self.embedding_scale
-        mem = self._update_memory(x, mem)
         for layer in self.layers:
             x = layer(x, x)
         output = self.output(x)
-        return output, mem
-    
-    def _update_memory(self, x, mem):
-        if mem is None:
-            return x
-        return torch.cat([mem, x], dim=1)[:, -self.mem_len:]
+        return output

@@ -10,6 +10,7 @@ from utils.trainer import load_optimization, train, test
 from utils.checkpoint import load, save
 from utils.config import Config
 from utils.distributed import distribute_dataset, setup_device, wrap_model
+from utils.metrics import number_of_parameters
 
 
 def define_argparser():
@@ -144,6 +145,8 @@ def main(arg=None):
 
     # load checkpoint
     init_epoch = load(config, model, optimizer, scheduler)
+    print('Number of parameters for {}: {}'\
+          .format(config.model_name, number_of_parameters(model)))
 
     # training
     if config.training:

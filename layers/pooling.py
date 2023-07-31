@@ -20,5 +20,9 @@ def any_max_pooling(output):
     """
     assert output.size(-1) == 2
     output2 = torch.softmax(output, dim=-1)
+    # b
     i = torch.argmax(output2[:, :, 1], dim=1)
-    return output[:, i, :]
+    # b x 1 x 2
+    i = i.unsqueeze(-1).unsqueeze(-1).repeat(1, 1, 2)
+    # b x 2
+    return output.gather(1, i).squeeze(1)

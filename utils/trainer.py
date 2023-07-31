@@ -62,13 +62,6 @@ def train(
             y:torch.Tensor = y.to(config.device)
 
             outputs = model(x)
-            
-            if config.data == 'binary':
-                if config.model == 'cats':
-                    outputs = torch.mean(outputs, dim=1)
-                else:
-                    outputs = outputs[:, -1, :]
-            outputs = outputs.reshape(-1, outputs.size(-1))
             y = y.reshape(-1)
 
             loss = criterion(outputs, y)
@@ -96,10 +89,6 @@ def validation(config:Config, model, val_loader, train_loss, epoch):
 
         outputs = model(x)
         
-        if config.model == 'cats':
-            outputs = torch.mean(outputs, dim=1)
-        else:
-            outputs = outputs[:, -1, :]
         y = y[:, -1]
         predicted = torch.argmax(
             torch.softmax(outputs, dim=1), dim=1)
@@ -131,11 +120,6 @@ def test(config:Config, model, test_loader):
         y = y.to(config.device)
 
         outputs = model(x)
-        
-        if config.model == 'cats':
-            outputs = torch.mean(outputs, dim=1)
-        else:
-            outputs = outputs[:, -1, :]
 
         y = y[:, -1]
         probs = torch.softmax(outputs, dim=1)

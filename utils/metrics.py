@@ -1,5 +1,5 @@
 import torch
-from sklearn.metrics import roc_auc_score, precision_score, recall_score
+from sklearn.metrics import roc_auc_score
 
 
 def confusion(labels, predictions):
@@ -23,4 +23,8 @@ def calculate_auroc(labels, logits):
     logits = logits.tolist()
 
     return roc_auc_score(labels, logits)
+
+
+def number_of_parameters(model):
+    return sum(p.numel() for p in model.parameters() if p.requires_grad)
     

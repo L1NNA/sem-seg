@@ -10,7 +10,6 @@ import torch.nn as nn
 
 from baselines.transformer import TransformerLayer
 from layers.embeddings import PositionalEncoding
-from layers.masking import create_masking
 from layers.pooling import any_max_pooling
 from utils.config import Config
 from data_loader.setup_BPE import get_tokenizer
@@ -40,8 +39,11 @@ class CATS(nn.Module):
         self.embedding = nn.Embedding(config.vocab_size, config.d_model) 
         self.embedding_scale = math.sqrt(config.d_model)
         self.pe = PositionalEncoding(config.d_model)
-        self.cls_tokens = torch.tensor([get_tokenizer().bos_token_id] * self.w).to(config.device)
-        self.cls_tokens = self.cls_tokens.unsqueeze(0).unsqueeze(-1).repeat(config.batch_size, 1, 1)
+
+        # add bos token at the beginning of each window
+        self.cls_tokens = torch.tensor([get_tokenizer().bos_token_id]).to(config.device)
+        batch_size = max(config.batch_size, config.test_batch_size)
+        self.cls_tokens = self.cls_tokens.expand(batch_size, self.w, 1)
         self.cls_tokens.requires_grad = False
 
         # Encode each sentence
@@ -79,11 +81,10 @@ class CATS(nn.Module):
         x += self.pe(x) # b x s' x d
         
         # encode each sentence
-        masking = create_masking(s_, s_, x.device)
         for layer in self.sent_encoder:
             # (b*w) x s' x d
-            x, _ = layer(x, masking=masking)
-        y = x[:, -1, :] # (b*w) x d
+            x, _ = layer(x)
+        y = x[:, 0, :] # (b*w) x d
         y = y.reshape(b, w, -1) # b x w x d
 
         # add positional encoding to windows

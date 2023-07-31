@@ -8,11 +8,16 @@ Use conda to manage environments
 conda create -n sem_seg python=3.8
 conda activate sem_seg
 # Install pytorch
-pip install -r requirements.txt
+pip install numpy pytorch
+```
+
+Baselines & Tokenizer
+```bash
+pip install transformers
 ```
 
 
 ### TODO
-- [ ] Optimize data loader: more data and sync dataset
+- [x] Optimize data loader: more data and sync dataset
 - [ ] predicter: add Tokenizer & predicter
 - [ ] add logger

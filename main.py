@@ -21,6 +21,8 @@ def define_argparser():
                         help='model name')
     parser.add_argument('--model_id', type=str, required=True,
                         help='the unique name of the current model')
+    parser.add_argument('--model_name', type=str, default=None,
+                        help='checkpoint name to load')
     parser.add_argument('--seed', type=int, default=42,
                         help='random seed')
     parser.add_argument('--checkpoint', type=str, default='./checkpoints',
@@ -79,7 +81,7 @@ def define_argparser():
     return parser
 
 
-def main(arg=None):
+def load_config(arg=None):
     parser = define_argparser()
     config:Config = parser.parse_args(arg)
 
@@ -90,7 +92,10 @@ def main(arg=None):
 
     # load tokenizer
     load_tokenizer(config)
+    return config
 
+
+def load_model(config:Config):
     # load model
     models = {
         'transformer': transformer.Transformer,
@@ -103,14 +108,21 @@ def main(arg=None):
     model = models[config.model](config)
     model = wrap_model(config, model)
 
-    # build name
-    config.model_name = '{}_{}_{}_window{}_dim{}'.format(
-        config.model_id,
-        config.model,
-        config.data,
-        config.seq_len,
-        config.d_model
-    )
+    if not config.model_name:
+        # build name
+        config.model_name = '{}_{}_{}_window{}_dim{}'.format(
+            config.model_id,
+            config.model,
+            config.data,
+            config.seq_len,
+            config.d_model
+        )
+    return model
+
+
+def main(arg=None):
+    config:Config = load_config(arg)
+    model = load_model(config)
 
     # load dataset
     train_dataset, val_dataset, test_dataset = load_dataset(config)

@@ -9,8 +9,9 @@ def load_checkpoint(path, model, optimizer, scheduler):
     state = torch.load(path, map_location=lambda storage, _: storage)
     init_epoch = state["epoch"]
     model.load_state_dict(state["model"])
-    optimizer.load_state_dict(state["optimizer"])
-    if "scheduler_epoch" in state:
+    if optimizer is not None:
+        optimizer.load_state_dict(state["optimizer"])
+    if "scheduler_epoch" in state and scheduler is not None:
         scheduler.step(state["scheduler_epoch"])
     return init_epoch
 

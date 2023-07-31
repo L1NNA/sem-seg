@@ -94,6 +94,7 @@ def load_config(arg=None):
     torch.manual_seed(config.seed)
     np.random.seed(config.seed)
 
+    setup_device(config)
     # load tokenizer
     load_tokenizer(config)
     return config
@@ -108,7 +109,6 @@ def load_model(config:Config, output_dim):
         'graphcodebert': graphcodebert.GraphCodeBERT,
     }
 
-    setup_device(config)
     model = models[config.model](config, output_dim)
     model = wrap_model(config, model)
 

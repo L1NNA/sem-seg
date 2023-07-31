@@ -6,6 +6,7 @@ import math
 from layers.ffn import FFN
 from layers.embeddings import PositionalEncoding
 from layers.masking import create_masking
+from layers.pooling import next_token_pooling
 from utils.config import Config
 
 
@@ -124,4 +125,5 @@ class Transformer(nn.Module):
             x, attn = layer(x, masking=masking)
             attns[f'attn_{i}'] = attn
         output = self.output(x)
+        output = next_token_pooling(output)
         return output

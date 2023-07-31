@@ -121,11 +121,13 @@ def validation(config:Config, model, val_loader, train_loss, epoch):
                 .format(epoch + 1, train_loss, accuracy))
 
 
-def test(config, model, test_loader):
+def test(config:Config, model, test_loader):
 
     model.eval()
-    correct = 0
-    total = 0
+    
+    predictions = None
+    labels = None
+
     for x, y in test_loader:
         x = x.to(config.device)
         y = y.to(config.device)
@@ -140,13 +142,29 @@ def test(config, model, test_loader):
         else:
             outputs = outputs[:, -1, :]
         y = y[:, -1]
-        predicted = torch.argmax(
-            torch.softmax(outputs, dim=1), dim=1)
-        total += y.size(0)
-        correct += (predicted == y).sum().item()
+        predicted = torch.softmax(outputs, dim=1)[:, -1]
+        
+        predictions = predicted if predictions is None \
+            else torch.cat((predictions, predicted))
+        labels = y if labels is None else torch.cat((labels, y))
     
-    stat = torch.tensor([correct, total], dtype=torch.long).to(config.device)
-    dist.reduce(stat, 0)
+    total = labels.size(0) * config.world_size
+    stat = torch.zeros(2, total, dtype=torch.long).to(config.device)
+    dist.gather(stat, [torch.stack(predictions, labels)], 0)
     if config.is_host:
-        accuracy = 100 * stat[0] / stat[1]
-        print("Accuracy: {:.2f}%".format(accuracy))
+        predictions = stat[0]
+        labels = stat[1]
+        
+        true_lables = torch.sum(labels).item()
+        false_lables = total - true_lables
+        true_positives = torch.sum(predictions * labels).item()
+        false_positives = torch.sum(predictions * (1 - labels)).item()
+        false_negatives = torch.sum((1 - predictions) * labels).item()
+
+        precision = true_positives / (true_positives + false_positives)
+        recall = true_positives / (true_positives + false_negatives)
+        auroc = (true_positives / true_lables + false_positives / false_lables) / 2
+        accuracy = 100 * (true_positives + false_negatives) / total
+
+        print("Accuracy: {:.2f}%, Precision {1:.2f}, Recall {2:.2f}, AUCROC: {3:.2f}"\
+              .format(accuracy, precision, recall, auroc))

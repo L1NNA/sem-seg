@@ -51,7 +51,7 @@ def train(
         train_loss = []
 
         model.train()
-        iterator = tqdm(train_loader, desc=f'Epoch {epoch}') \
+        iterator = tqdm(train_loader, desc=f'Epoch {epoch+1}') \
             if config.is_host else train_loader
         for x, y in iterator:
 

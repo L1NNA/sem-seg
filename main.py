@@ -145,7 +145,8 @@ def main(arg=None):
 
     # load checkpoint
     init_epoch = load(config, model, optimizer, scheduler)
-    print('Number of parameters for {}: {}'\
+    if config.is_host:
+        print('Number of parameters for {}: {}' \
           .format(config.model_name, number_of_parameters(model)))
 
     # training

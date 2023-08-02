@@ -3,13 +3,14 @@ import torch.distributed as dist
 from utils.config import Config
 
 from .binary_dataset import BinaryDataset
+from .binary_seg_dataset import BinarySegDataset
 from .seq_dataset import SeqDataset
 from .setup_BPE import get_tokenizer
 
 
 DATASET_MAP = {
     'seq': (SeqDataset, lambda config: config.vocab_size),
-    'binary': (BinaryDataset, lambda _: 2),
+    'binary': (BinarySegDataset, lambda _: 2),
 }
 
 

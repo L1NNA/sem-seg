@@ -45,7 +45,8 @@ class Tokenizer:
 
         
     def get_segments(self) -> Iterator[str]:
-        assert self.segment_labels is not None, "Please run segmentation first"
+        if self.segment_labels is None:
+            self.segmentation()
         init = 0
         for index in self.segment_labels:
             tokens = self.tokens[init:index]

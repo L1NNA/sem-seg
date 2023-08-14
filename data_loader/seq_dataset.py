@@ -1,5 +1,4 @@
 import glob
-import hashlib
 from os.path import join, basename
 
 import torch

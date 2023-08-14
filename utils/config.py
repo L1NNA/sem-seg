@@ -10,15 +10,17 @@ class Config:
     def __init__(self):
         self.model:str
         self.model_id:str
-        self.model_name:str
+        self.model_name:Optional[str]
         self.checkpoint:str
         self.seed:int
 
         self.training:bool
         self.testing:bool
+        self.segmentation:Optional[str]
         
         self.data_path:str
         self.data:str
+        self.database:Optional[str]
         self.vocab_size:int
         self.batch_size:int
         self.test_batch_size:int
@@ -46,7 +48,7 @@ class Config:
         self.lr_warmup:int
         self.lr_decay:bool
 
-        self.gpu:Optional[List[int]]
+        self.gpu:bool
         self.device:torch.device
         self.world_size:int
         self.rank:int

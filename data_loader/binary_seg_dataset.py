@@ -1,5 +1,5 @@
 import glob
-from os.path import join, basename, exists
+from os.path import join, exists
 
 import numpy as np
 import torch

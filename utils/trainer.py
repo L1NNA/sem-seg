@@ -83,17 +83,18 @@ def validation(config:Config, model, val_loader, train_loss, epoch):
     model.eval()
     correct = 0
     total = 0
-    for x, y in val_loader:
-        x = x.to(config.device)
-        y = y.to(config.device)
+    with torch.no_grad():
+        for x, y in val_loader:
+            x = x.to(config.device)
+            y = y.to(config.device)
 
-        outputs = model(x)
-        
-        y = y[:, -1]
-        predicted = torch.argmax(
-            torch.softmax(outputs, dim=1), dim=1)
-        total += y.size(0)
-        correct += (predicted == y).sum().item()
+            outputs = model(x)
+            
+            y = y[:, -1]
+            predicted = torch.argmax(
+                torch.softmax(outputs, dim=1), dim=1)
+            total += y.size(0)
+            correct += (predicted == y).sum().item()
     
     
     stat = torch.tensor([correct, total, np.sum(train_loss), len(train_loss)],
@@ -103,7 +104,7 @@ def validation(config:Config, model, val_loader, train_loss, epoch):
     if config.is_host:
         accuracy = 100 * stat[0] / stat[1]
         train_loss = stat[2] / stat[3]
-        print("Epoch: {0} | Train Loss: {1:.7f} Accuracy: {2:.2f}%" \
+        print("Epoch {0}: Train Loss: {1:.7f} Accuracy: {2:.2f}%" \
                 .format(epoch + 1, train_loss, accuracy))
 
 
@@ -115,24 +116,25 @@ def test(config:Config, model, test_loader):
     logits = None
     predictions = None
 
-    for x, y in test_loader:
-        x = x.to(config.device)
-        y = y.to(config.device)
+    with torch.no_grad():
+        for x, y in test_loader:
+            x = x.to(config.device)
+            y = y.to(config.device)
 
-        outputs = model(x)
+            outputs = model(x)
 
-        y = y[:, -1]
-        probs = torch.softmax(outputs, dim=1)
-        predicted = torch.argmax(probs, dim=1)
+            y = y[:, -1]
+            probs = torch.softmax(outputs, dim=1)
+            predicted = torch.argmax(probs, dim=1)
 
-        y = y.detach().cpu()
-        probs = probs.detach().cpu()[:, 1]
-        predicted = predicted.detach().cpu()
+            y = y.detach().cpu()
+            probs = probs.detach().cpu()[:, 1]
+            predicted = predicted.detach().cpu()
 
-        labels = y if labels is None else torch.cat((labels, y))
-        logits = probs if logits is None else torch.cat([logits, probs])
-        predictions = predicted if predictions is None \
-            else torch.cat((predictions, predicted))
+            labels = y if labels is None else torch.cat((labels, y))
+            logits = probs if logits is None else torch.cat([logits, probs])
+            predictions = predicted if predictions is None \
+                else torch.cat((predictions, predicted))
     
     if config.distributed:
         int_stats = [

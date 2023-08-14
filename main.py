@@ -7,6 +7,7 @@ import torch
 from baselines import cats, cosformer, graphcodebert, transformer
 from data_loader import load_dataset, load_tokenizer
 from utils.trainer import load_optimization, train, test
+from utils.predictor import segmentation
 from utils.checkpoint import load, save
 from utils.config import Config
 from utils.distributed import distribute_dataset, setup_device, wrap_model
@@ -36,8 +37,10 @@ def define_argparser():
     # data_loader
     parser.add_argument('--data_path', type=str, default='./data',
                         help='the path of data files')
-    parser.add_argument('--data', required=True, default='seq',
+    parser.add_argument('--data', required=True, default='binary',
                         choices=['seq', 'binary'], help='datasaets')
+    parser.add_argument('--database', type=str, default='./database',
+                        help='the path to the packages database')
     parser.add_argument('--num_workers', type=int, default=8,
                         help='number of workers')
     parser.add_argument('--batch_size', type=int, default=32,
@@ -46,10 +49,10 @@ def define_argparser():
                         help='batch size of validation & tese input data')
     parser.add_argument('--seq_len', type=int, default=512,
                         help='input sequence length')
-    parser.add_argument('--max_samples', type=int, default=100000,
-                        help='input sequence length')
-    parser.add_argument('--mem_len', type=int, default=1024,
-                        help='memory sequence length')
+    # parser.add_argument('--max_samples', type=int, default=100000,
+    #                     help='input sequence length')
+    # parser.add_argument('--mem_len', type=int, default=1024,
+    #                     help='memory sequence length')
 
     # hyper-parameters
     transformer.add_args(parser)
@@ -161,6 +164,8 @@ def main(arg=None):
         test(config, model, test_loader)
 
     # inference
+    if config.segmentation:
+        segmentation(config, model)
 
 if __name__ == "__main__":
     main()

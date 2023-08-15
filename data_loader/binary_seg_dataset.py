@@ -13,7 +13,7 @@ from data_loader.setup_BPE import get_tokenizer
 class BinarySegDataset(Dataset):
     """
     Classifies whether the current window has
-    a segment boundary or not 
+    a segment boundary or not, this dataset needs tokenization
     """
 
     def __init__(self, config:Config, name):
@@ -42,7 +42,7 @@ class BinarySegDataset(Dataset):
         print('Loading dataset')
         for seg_file in tqdm(seg_files):
 
-            x, y = BinarySegDataset.build_file(seg_file, self.seq_len)
+            x, y = BinarySegDataset.build_file(seg_file)
 
             if len(x) < self.seq_len:
                 continue
@@ -69,12 +69,12 @@ class BinarySegDataset(Dataset):
         print(f'Total number of {self.name} samples: {len(self.segments)}')
 
     @staticmethod
-    def build_file(seg_file, seq_len):
+    def build_file(seg_file):
         tokenizer = get_tokenizer()
         segs = torch.load(seg_file)
         x = []
         y = []
-        for seg, label in segs:
+        for seg, _ in segs:
             tokens = tokenizer.encode(seg, add_special_tokens=False)
             x.extend(tokens)
             y.extend([0] * (len(tokens) - 1))

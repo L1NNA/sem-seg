@@ -26,3 +26,4 @@ def any_max_pooling(output):
     i = i.unsqueeze(-1).unsqueeze(-1).repeat(1, 1, 2)
     # b x 2
     return output.gather(1, i).squeeze(1)
+

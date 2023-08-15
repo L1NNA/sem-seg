@@ -12,7 +12,7 @@ from utils.config import Config
 class BinaryDataset(Dataset):
     """
     Classifies whether the current window has
-    a segment boundary or not 
+    a segment boundary or not, this dataset does not need tokenization
     """
 
     def __init__(self, config:Config, name):

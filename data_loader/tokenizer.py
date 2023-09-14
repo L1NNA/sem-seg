@@ -25,9 +25,21 @@ class Tokenizer:
         self.tokens = tokenizer.encode(text)
         assert len(self.tokens) > self.config.seq_len, "Input is too short"
 
-    def segmentation(self):
+    def load_file(self, seg_file):
+        self.tokens = []
+        self.lablels = []
+        tokenizer = get_tokenizer()
+        segs = torch.load(seg_file)
+        index = 0
+        for seg, _ in segs:
+            tokens = tokenizer.encode(seg, add_special_tokens=False)
+            self.tokens.extend(tokens)
+            i += len(tokens) - 1
+            self.lablels.append(i)
+
+    def greedy_segmentation(self):
         assert self.tokens is not None, "Please run encode first"
-        self.segment_labels = []
+        segment_labels = []
         skip = 0
         for i in tqdm(range(len(self.tokens)-self.config.seq_len), 'Segmenting'):
             if i < skip:
@@ -38,11 +50,25 @@ class Tokenizer:
                 output = self.model(input_ids)
             output = torch.argmax(torch.softmax(output.squeeze(0))).item()
             if output == 1:
-                self.segment_labels.append(i)
+                segment_labels.append(i)
                 # if there is a segment boundary, skip the whole window
                 skip = i + self.config.seq_len
-        self.segment_labels.append(None)
+        segment_labels.append(None)
+        return segment_labels
 
+    def full_segmentation(self):
+        assert self.tokens is not None, "Please run encode first"
+        segment_labels = [0] * self.config.seq_len
+        for i in tqdm(range(len(self.tokens)-self.config.seq_len), 'Segmenting'):
+            tokens = self.tokens[i:i+self.config.seq_len]
+            input_ids = torch.tensor(tokens).unsqueeze(0)
+            with torch.no_grad():
+                output = self.model(input_ids)
+            output = torch.argmax(torch.softmax(output.squeeze(0))).item()
+            if output == 1:
+                for j in range(-1, -1-self.config.seq_len, -1):
+                    segment_labels[j] += 1
+        return segment_labels
         
     def get_segments(self) -> Iterator[str]:
         if self.segment_labels is None:

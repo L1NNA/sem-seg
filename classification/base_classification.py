@@ -1,5 +1,7 @@
 from typing import Any, List, Tuple
 
+import numpy as np
+
 from utils.config import Config
 
 
@@ -10,7 +12,7 @@ class BaseClassification:
         self.sources:List[Tuple[str, str]] = []
 
     def get_sources(self, sources:List[Tuple[str, str]]):
-        self.sources = sources
+        self.sources = np.array(sources)
 
     def classify(self, target:str):
         pass

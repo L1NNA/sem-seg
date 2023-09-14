@@ -1,22 +1,33 @@
 import gzip
-import numpy as np
 from collections import defaultdict
+import multiprocessing
+
+import numpy as np
+from tqdm import tqdm
+
+from data_loader.setup_BPE import get_tokenizer
 
 from .base_classification import BaseClassification
-from data_loader.setup_BPE import get_tokenizer
+from utils.config import Config
+
+
+def compress_map(source, target, Cx1):
+    Cx2 = len(gzip.compress(source.encode()))
+    x1x2 = ' '.join([target, source])
+    Cx1x2 = len(gzip.compress(x1x2.encode()))
+    ncd = (Cx1x2 - min(Cx1, Cx2)) / max(Cx1, Cx2)
+    return ncd
 
 
 class GzipClassification(BaseClassification):
 
     def classify(self, target:str):
         Cx1 = len(gzip.compress(target.encode()))
-        distance_from_x1 = []
-        for source, _ in self.sources:
-            Cx2 = len(gzip.compress(source.encode()))
-            x1x2 = ' '.join([target, source])
-            Cx1x2 = len(gzip.compress(x1x2.encode()))
-            ncd = (Cx1x2 - min(Cx1, Cx2)) / max(Cx1, Cx2)
-            distance_from_x1.append(ncd)
+
+        with multiprocessing.Pool(50) as p:
+            distance_from_x1 = p.starmap(compress_map, [(
+                source, target, Cx1
+            ) for source, _ in self.sources])
         sorted_idx = np.argsort(np.array(distance_from_x1))
         # very sparse, no need to take top k
         # top_k_class = self.sources[sorted_idx[:self.config.n_windows], 1]
@@ -27,8 +38,11 @@ class GzipClassification(BaseClassification):
 
 class CompressLoopClassification(BaseClassification):
 
+    def __init__(self, config:Config):
+        super().__init__(self, config)
+
     def get_sources(self, sources):
-        for source in sources:
+        for source in tqdm(sources, desc='Load sources'):
             for i in range(0, len(source[0])-self.config.seq_len+1, self.config.seq_len):
                 self.sources.append([source[0][i:i+self.config.seq_len], source[1]])
         self.sources = np.array(self.sources)
@@ -75,7 +89,7 @@ class TokenLoopClassification(BaseClassification):
 
     def get_sources(self, sources):
         tokenizer = get_tokenizer()
-        for source, label in sources:
+        for source, label in tqdm(sources, desc='Load sources'):
             tokens = tokenizer.encode(source, add_special_tokens=False)
             for i in range(0, len(tokens)-self.config.seq_len+1, self.config.seq_len):
                 self.sources.append([np.array(tokens[i:i+self.config.seq_len]), label])

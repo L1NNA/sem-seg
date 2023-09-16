@@ -1,14 +1,23 @@
 import os
 import torch
+from collections import OrderedDict
 
 from utils.config import Config
 
 
-def load_checkpoint(path, model, optimizer, scheduler):
+
+def load_checkpoint(path, model, optimizer, scheduler, config):
     # the model is saved from gpu0 so we need to map it to CPU first
     state = torch.load(path, map_location=lambda storage, _: storage)
     init_epoch = state["epoch"]
-    model.load_state_dict(state["model"])
+    if config.distributed:
+        model.load_state_dict(state["model"])
+    else:
+        new_state_dict = OrderedDict()
+        for k, v in state["model"].items():
+            name = k[7:] if k.startswith('module.') else k  # remove `module.` prefix
+            new_state_dict[name] = v
+        model.load_state_dict(new_state_dict)
     if optimizer is not None:
         optimizer.load_state_dict(state["optimizer"])
     if "scheduler_epoch" in state and scheduler is not None:
@@ -21,7 +30,7 @@ def load(config:Config, model, optimizer, scheduler):
     if os.path.exists(checkpoint):
         try:
             init_epoch = load_checkpoint(
-                checkpoint, model, optimizer, scheduler
+                checkpoint, model, optimizer, scheduler, config
             )
             if config.is_host:
                 print('Checkpoint loaded')

@@ -14,9 +14,9 @@ def setup_device(config:Config):
         config.is_host = True
         config.distributed = False
         return
-    elif torch.cuda.device_count() == 1:
+    elif config.local_rank != None or torch.cuda.device_count() == 1:
         config.world_size = 1
-        config.rank = config.local_rank if config.local_rank > -1 else 0
+        config.rank = config.local_rank if config.local_rank != None and config.local_rank > -1 else 0
         config.is_host = True
         config.distributed = False
     else:

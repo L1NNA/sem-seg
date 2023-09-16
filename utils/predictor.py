@@ -1,14 +1,26 @@
 from data_loader.tokenizer import Tokenizer
 from utils.config import Config
 
+import torch
+
 
 def segmentation(config:Config, model):
 
-    with open(config.segmentation, 'r') as f:
-        code = f.read()
+    segs = torch.load(config.segmentation)
+    code = ''
+    labels = []
+    for seg, _ in segs:
+        code += seg
+        labels.append(len(code))
 
     tokenizer = Tokenizer(config, model)
-    tokenizer.encode(code)
-    for segment in tokenizer.get_segments():
-        print(segment)
-        print('----------------------------------')
+    cache = {}
+    tokenizer.encode(code, labels)
+    cache['mapping'] = tokenizer.offset_map
+    cache['greedy_labels'] = tokenizer.greedy_segmentation()
+    cache['full_labels'] = tokenizer.full_segmentation()
+    cache['labels'] = labels
+
+    torch.save(cache, './data2/cache/segmentation.pt')
+
+    

@@ -139,8 +139,8 @@ def train_cybertron(model:Cybertron, train_loader, val_loader, epochs, device, o
 
         accuracy = 100 * correct / total
         train_losses = np.mean(train_loss)
-        print("Epoch {0}: Train Loss: {1:.7f} Accuracy: {2:.2f}%" \
-                .format(epoch + 1, train_losses, accuracy))
+        print("Epoch {0}: Train Loss: {1:.7f} Accuracy: {2:.2f}% Total{3}" \
+                .format(epoch + 1, train_losses, accuracy, total))
 
     
 

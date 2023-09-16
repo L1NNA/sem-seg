@@ -82,7 +82,7 @@ def define_argparser():
 
     # distribution
     parser.add_argument('--gpu', action='store_true', help='use gpu or not')
-    parser.add_argument('--local_rank', type=int, default=-1,
+    parser.add_argument('--local_rank', type=int, default=None,
         help="local instance",
     )
     

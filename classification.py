@@ -76,8 +76,9 @@ def force_cybertron():
     config = Config()
     config.checkpoint = './checkpoints'
     config.model_name = 'cybertron'
-    config.epochs = 10
+    config.epochs = 2
     config.device = torch.device('cuda:0')
+    config.is_host = True
     model = model.to(config.device)
 
     init_epoch = load(config, model, optimizer, None)

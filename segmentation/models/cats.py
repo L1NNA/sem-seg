@@ -8,11 +8,11 @@ import math
 import torch
 import torch.nn as nn
 
-from baselines.transformer import TransformerLayer
+from layers.transformer import TransformerLayer
 from layers.embeddings import PositionalEncoding
 from layers.pooling import any_max_pooling
 from utils.config import Config
-from data_loader.setup_BPE import get_tokenizer
+from utils.setup_BPE import get_tokenizer
 
 
 def add_args(args):

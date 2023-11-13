@@ -1,14 +1,13 @@
-import gzip
-from collections import defaultdict
 import multiprocessing
+from collections import defaultdict
 
+import gzip
 import numpy as np
-from tqdm import tqdm
-
-from data_loader.setup_BPE import get_tokenizer
+from tqdm import tqdm_notebook
 
 from .base_classification import BaseClassification
 from utils.config import Config
+from utils.setup_BPE import get_tokenizer
 
 
 def compress_map(source, target, Cx1):

@@ -7,7 +7,7 @@ from tqdm import tqdm
 from torch.utils.data import Dataset
 
 from utils.config import Config
-from data_loader.setup_BPE import get_tokenizer
+from utils.setup_BPE import get_tokenizer
 
 
 def load_classification(files_path, range_len=100):

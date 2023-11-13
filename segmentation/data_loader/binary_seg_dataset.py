@@ -7,7 +7,7 @@ from torch.utils.data import Dataset
 from tqdm import tqdm
 
 from utils.config import Config
-from data_loader.setup_BPE import get_tokenizer
+from utils.setup_BPE import get_tokenizer
 
 
 class BinarySegDataset(Dataset):

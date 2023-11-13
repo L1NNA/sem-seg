@@ -2,6 +2,7 @@
 __pycache__/
 *.py[cod]
 *$py.class
+*.bin
 
 # Jupyter Notebook
 .ipynb_checkpoints
@@ -13,5 +14,4 @@ test.ipynb
 
 # cache files
 data
-data2
 checkpoints

@@ -6,7 +6,7 @@ import torch
 import torch.nn as nn
 from transformers import RobertaConfig, RobertaModel
 
-from data_loader.setup_BPE import GRAPH_CODE_BERT, get_tokenizer
+from utils.setup_BPE import GRAPH_CODE_BERT, get_tokenizer
 from layers.pooling import cls_pooling
 from utils.config import Config
 

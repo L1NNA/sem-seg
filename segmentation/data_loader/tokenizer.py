@@ -2,12 +2,11 @@ from os.path import join
 from typing import List, Iterator
 
 import torch
+from tqdm import tqdm
 
 from utils.config import Config
 from utils.checkpoint import load_checkpoint
-from data_loader.setup_BPE import get_tokenizer
-
-from tqdm import tqdm
+from utils.setup_BPE import get_tokenizer
 
 
 class Tokenizer:

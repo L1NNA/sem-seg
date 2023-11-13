@@ -4,10 +4,10 @@ from torch.utils.data import DataLoader
 import torch
 from torch import optim
 
-from classification.load_classification import load_classification, ClassificationDataset
-from classification.gzip_classification import GzipClassification, CompressLoopClassification, TokenLoopClassification
-from baselines.cybertron import Cybertron, train_cybertron
-from data_loader.setup_BPE import get_tokenizer
+from classification.data_loader.load_classification import load_classification, ClassificationDataset
+from classification.models.gzip_classification import GzipClassification, CompressLoopClassification, TokenLoopClassification
+from classification.models.cybertron import Cybertron, train_cybertron, test_cybertron
+from utils.setup_BPE import get_tokenizer
 from utils.config import Config
 from utils.checkpoint import load, save
 
@@ -16,7 +16,7 @@ def test_gzip_classification():
     config.n_windows = 10
     config.seq_len = 2048
     config.threshold = 0.2
-    data_path = './data2/train'
+    data_path = './data/train'
 
     training, segments = load_classification(data_path)
 
@@ -66,12 +66,18 @@ def force_cybertron():
     model = Cybertron(vocab_size, d_model, num_kernels, kernel_size, n_heads, n_layers, d_ff, dropout)
     optimizer = optim.Adam(model.parameters(), lr=0.0001)
     
-    train_dataset = ClassificationDataset('./data2', 'train')
+    train_dataset = ClassificationDataset('./data', 'train')
     train_dataset.load_data()
+    print(len(train_dataset))
     train_loader = DataLoader(train_dataset, batch_size=2, shuffle=True, collate_fn=collate_fn)
-    val_dataset = ClassificationDataset('./data2', 'valid')
+    val_dataset = ClassificationDataset('./data', 'valid')
     val_dataset.load_data()
+    print(len(val_dataset))
     val_loader = DataLoader(val_dataset, batch_size=2, shuffle=True, collate_fn=collate_fn)
+    test_dataset = ClassificationDataset('./data', 'test')
+    test_dataset.load_data()
+    print(len(test_dataset))
+    test_loader = DataLoader(test_dataset, batch_size=2, shuffle=True, collate_fn=collate_fn)
 
     config = Config()
     config.checkpoint = './checkpoints'
@@ -84,6 +90,8 @@ def force_cybertron():
     init_epoch = load(config, model, optimizer, None)
     train_cybertron(model, train_loader, val_loader, config.epochs, config.device, optimizer, init_epoch)
     save(config, model, optimizer, None)
+    test_cybertron(model, test_loader, config.device)
+    
 
 
 force_cybertron()

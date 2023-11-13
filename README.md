@@ -9,10 +9,11 @@ conda create -n sem_seg python=3.8
 conda activate sem_seg
 # Install pytorch with cuda
 pip install numpy scikit-learn # tools
-pip install transformers # baselines
+pip install transformers
+pip install hnswlib # indexing
 ```
 
 ### TODO
 - [x] Optimize data loader: more data and sync dataset
-- [ ] predicter: add Tokenizer & predicter
+- [x] predicter: add Tokenizer & predicter
 - [ ] add logger

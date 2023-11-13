@@ -4,7 +4,7 @@ from os.path import join, basename
 import torch
 from torch.utils.data import Dataset
 
-from data_loader.setup_BPE import get_tokenizer
+from utils.setup_BPE import get_tokenizer
 from utils.config import Config
 
 
@@ -18,7 +18,7 @@ class SeqDataset(Dataset):
         self.token_path = join(config.data_path, name)
         self.seq_len = config.seq_len
         self.max_len = max_len
-        self.seq_token_id = get_tokenizer().sep_token_id
+        self.sep_token_id = get_tokenizer().sep_token_id
         
         self.segments = []
         self.tokens = {}
@@ -61,7 +61,7 @@ class SeqDataset(Dataset):
 
         x = torch.tensor(tokens[i:i+self.seq_len], dtype=torch.long)
         y = torch.tensor(tokens[i+1:i+1+self.seq_len], dtype=torch.long)
-        y = torch.masked_fill(y, labels, self.seq_token_id)
+        y = torch.masked_fill(y, labels, self.sep_token_id)
         
         return x, y
 

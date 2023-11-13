@@ -5,7 +5,7 @@ import torch.nn.functional as F
 import numpy as np
 from tqdm import tqdm
 
-from baselines.transformer import TransformerLayer
+from layers.transformer import TransformerLayer
 from layers.embeddings import PositionalEncoding
 
 class SelectionLayer(nn.Module):
@@ -116,7 +116,8 @@ def train_cybertron(model:Cybertron, train_loader, val_loader, epochs, device, o
             outputs, log_probs = model(x, y)
             y = y.reshape(-1)
 
-            loss = criterion(outputs, label) + reinforce_loss(outputs, label, log_probs)
+            # loss = criterion(outputs, label) + reinforce_loss(outputs, label, log_probs)
+            loss = criterion(outputs, label)
             train_loss.append(loss.item())
 
             loss.backward()
@@ -142,6 +143,21 @@ def train_cybertron(model:Cybertron, train_loader, val_loader, epochs, device, o
         print("Epoch {0}: Train Loss: {1:.7f} Accuracy: {2:.2f}% Total{3}" \
                 .format(epoch + 1, train_losses, accuracy, total))
 
-    
+def test_cybertron(model:Cybertron, test_loader, device):
+    model.eval()
+    correct = 0
+    total = 0
+    with torch.no_grad():
+        for x, y, label in test_loader:
+            x = x.to(device)
+            y = y.to(device)
+            label = label.to(device)
 
+            outputs, _ = model(x, y)
+            
+            outputs = outputs.round()
+            total += outputs.size(0)
+            correct += (outputs == label).sum().item()
 
+    accuracy = 100 * correct / total
+    print("Accuracy: {:.2f}% Total: {}".format(accuracy, total))

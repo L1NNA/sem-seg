@@ -4,10 +4,10 @@ import random
 import numpy as np
 import torch
 
-from baselines import cats, cosformer, graphcodebert, transformer
-from data_loader import load_dataset, load_tokenizer
+from segmentation.models import cats, cosformer, graphcodebert, transformer
+from segmentation.data_loader import load_dataset, load_tokenizer
+from segmentation.predictor import segmentation
 from utils.trainer import load_optimization, train, test
-from utils.predictor import segmentation
 from utils.checkpoint import load, save
 from utils.config import Config
 from utils.distributed import distribute_dataset, setup_device, wrap_model

@@ -1,4 +1,4 @@
-from data_loader.tokenizer import Tokenizer
+from segmentation.data_loader.tokenizer import Tokenizer
 from utils.config import Config
 
 import torch

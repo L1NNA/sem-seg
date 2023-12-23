@@ -47,6 +47,13 @@ class BinarySegDataset(Dataset):
             if len(x) < self.seq_len:
                 continue
 
+            if self.name == 'test':
+                for i in range(0, len(x)-self.seq_len, self.seq_len):
+                    tokens = x[i:i+self.seq_len]
+                    label = 1 if 1 in y[i:i+self.seq_len] else 0
+                    self.segments.append((tokens, label))
+                continue
+
             false_labels = []
             # reverse to prevent padding
             for i in range(len(x)-self.seq_len, -1, -self.seq_len):
@@ -64,7 +71,8 @@ class BinarySegDataset(Dataset):
                 tokens = x[i:i+self.seq_len]
                 self.segments.append((tokens, 0))
 
-        np.random.shuffle(self.segments)
+        if self.name != 'test':
+            np.random.shuffle(self.segments)
         torch.save(self.segments, self.cache_path)
         print(f'Total number of {self.name} samples: {len(self.segments)}')
 

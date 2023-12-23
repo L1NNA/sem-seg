@@ -13,26 +13,14 @@ from utils.config import Config
 from utils.metrics import confusion, calculate_auroc
 
 
-def load_optimization(config:Config, model):
+def load_optimization(config:Config, model:nn.Module):
     # load training
     if config.optim == "sgd":
         optimizer = optim.SGD(model.parameters(), lr=config.lr)
     elif config.optim == "adam":
         optimizer = optim.Adam(model.parameters(), lr=config.lr)
 
-    if config.lr_decay:
-        # will do warm-up manually later
-        scheduler = optim.lr_scheduler.CosineAnnealingLR(
-            optimizer, config.epochs * config.batch_size
-        )
-    elif config.lr_warmup > 0:
-        scheduler = optim.lr_scheduler.LambdaLR(
-            optimizer, lambda ep: min(1, ep / config.lr_warmup)
-        )
-    else:
-        scheduler = None
-
-    return optimizer, scheduler
+    return optimizer
 
 
 def train(
@@ -69,11 +57,16 @@ def train(
 
             loss.backward()
             optimizer.step()
-
-        if scheduler is not None:
-            scheduler.step()
-
-        validation(config, model, val_loader, train_loss, epoch)
+        
+        stat = torch.tensor([np.sum(train_loss), len(train_loss)],
+                dtype=torch.float32).to(config.device)
+        if config.distributed:
+            dist.reduce(stat, 0)
+        if config.is_host:
+            train_loss = stat[0] / stat[1]
+            print("Epoch {0}: Train Loss: {1:.7f}" \
+                .format(epoch + 1, train_loss))
+        test(config, model, val_loader, 'Epoch {} validation'.format(epoch))
         if config.distributed:
             dist.barrier()
         train_loss.clear()
@@ -108,7 +101,7 @@ def validation(config:Config, model, val_loader, train_loss, epoch):
                 .format(epoch + 1, train_loss, accuracy))
 
 
-def test(config:Config, model, test_loader):
+def test(config:Config, model, test_loader, name):
 
     model.eval()
     
@@ -158,9 +151,9 @@ def test(config:Config, model, test_loader):
 
     if config.is_host:
         total = labels.size(0)
-        accuracy, recall, precision = confusion(labels, predictions)
+        accuracy, precision, recall, f1 = confusion(labels, predictions)
         auroc = calculate_auroc(labels, logits)
 
-        print("Accuracy: {:.2f}%, Precision: {:.2f}, Recall: {:.2f}, AUCROC: {:2f}, Total: {}"\
-              .format(accuracy, precision, recall, auroc, total))
+        print("{}: Accuracy: {:.2f}%, Precision: {:.2f}, Recall: {:.2f}, F1: {:.2f}, AUCROC: {:.2f}, Total: {}"\
+              .format(name, accuracy, precision, recall, f1, auroc, total))
 

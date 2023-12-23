@@ -20,8 +20,8 @@ def load_checkpoint(path, model, optimizer, scheduler, config):
         model.load_state_dict(new_state_dict)
     if optimizer is not None:
         optimizer.load_state_dict(state["optimizer"])
-    if "scheduler_epoch" in state and scheduler is not None:
-        scheduler.step(state["scheduler_epoch"])
+    # if "scheduler_epoch" in state and scheduler is not None:
+    #     scheduler.step(state["scheduler_epoch"])
     return init_epoch
 
 def load(config:Config, model, optimizer, scheduler):
@@ -47,8 +47,8 @@ def save(config:Config, model, optimizer, scheduler):
     state["epoch"] = config.epochs
     state["model"] = model.state_dict()
     state["optimizer"] = optimizer.state_dict()
-    if scheduler is not None:
-        state["scheduler_epoch"] = scheduler.last_epoch
+    # if scheduler is not None:
+    #     state["scheduler_epoch"] = scheduler.last_epoch
     torch.save(state, checkpoint)
     if config.is_host:
         print('Checkpoint saved')

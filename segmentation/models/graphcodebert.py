@@ -30,7 +30,7 @@ class GraphCodeBERT(nn.Module):
         self.output_size = output_dim
         
         self.cls_tokens = torch.tensor([get_tokenizer().bos_token_id]).to(config.device)
-        self.cls_tokens = self.cls_tokens.unsqueeze(0).repeat(config.batch_size, 1)
+        self.cls_tokens = self.cls_tokens.repeat(config.batch_size, 1)
         self.cls_tokens.requires_grad = False
 
         bert_config = RobertaConfig.from_pretrained(GRAPH_CODE_BERT)

@@ -19,8 +19,8 @@ def create_masking(seq_len:int, span_len:int, device:Optional[torch.device]=None
         the look ahead mask
     """
     assert seq_len <= span_len
-    mlen = span_len - seq_len
-    mask = torch.ones(seq_len, span_len, device=device).triu(mlen + 1)
+    offset = span_len - seq_len
+    mask = torch.ones(seq_len, span_len, device=device).triu(offset + 1)
     if mem_len is not None:
         mask_len = span_len - mem_len
         mask_shift_len = (seq_len - mask_len) if mask_len > 0 else seq_len

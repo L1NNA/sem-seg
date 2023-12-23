@@ -30,6 +30,7 @@ def define_argparser():
     parser.add_argument('--checkpoint', type=str, default='./checkpoints',
                         help='checkpoint path')
     parser.add_argument('--training', action='store_true', help='if training')
+    parser.add_argument('--validation', action='store_true', help='if validation')
     parser.add_argument('--testing', action='store_true', help='if testing')
     parser.add_argument('--segmentation', type=str, default=None,
                         help='if to segment a file')
@@ -41,18 +42,12 @@ def define_argparser():
                         choices=['seq', 'binary'], help='datasaets')
     parser.add_argument('--database', type=str, default='./database',
                         help='the path to the packages database')
-    parser.add_argument('--num_workers', type=int, default=8,
+    parser.add_argument('--num_workers', type=int, default=1,
                         help='number of workers')
     parser.add_argument('--batch_size', type=int, default=32,
-                        help='batch size of train input data')
-    parser.add_argument('--test_batch_size', type=int, default=16,
-                        help='batch size of validation & tese input data')
+                        help='batch size')
     parser.add_argument('--seq_len', type=int, default=512,
                         help='input sequence length')
-    # parser.add_argument('--max_samples', type=int, default=100000,
-    #                     help='input sequence length')
-    # parser.add_argument('--mem_len', type=int, default=1024,
-    #                     help='memory sequence length')
 
     # hyper-parameters
     transformer.add_args(parser)
@@ -69,16 +64,6 @@ def define_argparser():
                         choices=("sgd", "adam"),
                         help="optimization method",
     )
-    parser.add_argument("--lr_warmup", type=int, default=0,
-        help="linearly increase LR from 0 during K updates",
-    )
-    parser.add_argument("--lr_decay", action="store_true", default=False,
-        help="decay learning rate with cosine scheduler",
-    )
-    # parser.add_argument('--patience', type=int, default=3,
-    #                     help='early stopping patience')
-    # parser.add_argument('--itr', type=int, default=2,
-    #                     help='experiments times')
 
     # distribution
     parser.add_argument('--gpu', action='store_true', help='use gpu or not')
@@ -134,8 +119,8 @@ def main(arg=None):
     # load dataset
     train_dataset, val_dataset, test_dataset, output_dim = load_dataset(config)
     train_loader = distribute_dataset(config, train_dataset, config.batch_size)
-    val_loader = distribute_dataset(config, val_dataset, config.test_batch_size)
-    test_loader = distribute_dataset(config, test_dataset, config.test_batch_size)
+    val_loader = distribute_dataset(config, val_dataset, config.batch_size)
+    test_loader = distribute_dataset(config, test_dataset, config.batch_size)
 
     # load model
     model = load_model(config, output_dim)
@@ -158,10 +143,13 @@ def main(arg=None):
             optimizer, scheduler, init_epoch)
         if config.is_host:
             save(config, model, optimizer, scheduler)
+    elif config.validation:
+        test(config, model, val_loader, 'Validation')
+    
 
     # testing
     if config.testing:
-        test(config, model, test_loader)
+        test(config, model, test_loader, 'Test')
 
     # inference
     if config.segmentation:

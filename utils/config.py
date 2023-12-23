@@ -15,6 +15,7 @@ class Config:
         self.seed:int
 
         self.training:bool
+        self.validation:bool
         self.testing:bool
         self.segmentation:Optional[str]
         

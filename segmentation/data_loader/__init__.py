@@ -5,7 +5,7 @@ from utils.config import Config
 from .binary_dataset import BinaryDataset
 from .binary_seg_dataset import BinarySegDataset
 from .seq_dataset import SeqDataset
-from .setup_BPE import get_tokenizer
+from utils.setup_BPE import get_tokenizer
 
 
 DATASET_MAP = {
@@ -18,6 +18,8 @@ def _load_all(clazz, config:Config):
     train, valid, test = None, None, None
     if config.training:
         train = clazz(config, 'train')
+        valid = clazz(config, 'valid')
+    if config.validation and valid is None:
         valid = clazz(config, 'valid')
     if config.testing:
         test = clazz(config, 'test')

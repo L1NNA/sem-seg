@@ -5,6 +5,7 @@ import numpy as np
 import torch
 
 from segmentation.models import cats, cosformer, graphcodebert, transformer
+from labeling.models import longformer
 from segmentation.data_loader import load_dataset, load_tokenizer
 from segmentation.predictor import segmentation
 from utils.trainer import load_optimization, train, test
@@ -19,7 +20,7 @@ def define_argparser():
 
     # loading model
     parser.add_argument('--model', required=True, default='transformer',
-                        choices=['transformer', 'cosformer', 'cats', 'graphcodebert'],
+                        choices=['transformer', 'cosformer', 'cats', 'graphcodebert', 'longformer'],
                         help='model name')
     parser.add_argument('--model_id', type=str, required=True,
                         help='the unique name of the current model')
@@ -39,7 +40,7 @@ def define_argparser():
     parser.add_argument('--data_path', type=str, default='./data',
                         help='the path of data files')
     parser.add_argument('--data', required=True, default='binary',
-                        choices=['seq', 'binary'], help='datasaets')
+                        choices=['seq', 'binary', 'labeling'], help='datasaets')
     parser.add_argument('--database', type=str, default='./database',
                         help='the path to the packages database')
     parser.add_argument('--num_workers', type=int, default=1,
@@ -96,6 +97,7 @@ def load_model(config:Config, output_dim):
         'cosformer': cosformer.Cosformer,
         'cats': cats.CATS,
         'graphcodebert': graphcodebert.GraphCodeBERT,
+        'longformer': longformer.LongFormer
     }
 
     model = models[config.model](config, output_dim)
@@ -127,12 +129,12 @@ def main(arg=None):
 
     # load optimization
     if config.training:
-        optimizer, scheduler = load_optimization(config, model)
+        optimizer = load_optimization(config, model)
     else:
-        optimizer, scheduler = None, None
+        optimizer = None
 
     # load checkpoint
-    init_epoch = load(config, model, optimizer, scheduler)
+    init_epoch = load(config, model, optimizer)
     if config.is_host:
         print('Number of parameters for {}: {}' \
           .format(config.model_name, number_of_parameters(model)))
@@ -140,9 +142,9 @@ def main(arg=None):
     # training
     if config.training:
         train(config, model, train_loader, val_loader,
-            optimizer, scheduler, init_epoch)
+            optimizer, init_epoch)
         if config.is_host:
-            save(config, model, optimizer, scheduler)
+            save(config, model, optimizer)
     elif config.validation:
         test(config, model, val_loader, 'Validation')
     

@@ -10,8 +10,8 @@ conda activate sem_seg
 # Install pytorch with cuda
 pip install numpy scikit-learn # tools
 pip install transformers
-pip install hnswlib # indexing
 ```
+<!-- pip install hnswlib # indexing -->
 
 ### TODO
 - [x] Optimize data loader: more data and sync dataset

@@ -5,12 +5,16 @@ from utils.config import Config
 from .binary_dataset import BinaryDataset
 from .binary_seg_dataset import BinarySegDataset
 from .seq_dataset import SeqDataset
+from labeling.data_loader.binary_classification import BinaryClassification
+from labeling.data_loader.clone_detection import CloneDetection
 from utils.setup_BPE import get_tokenizer
 
 
 DATASET_MAP = {
     'seq': (SeqDataset, lambda config: config.vocab_size),
     'binary': (BinarySegDataset, lambda _: 2),
+    'labeling': (BinaryClassification, lambda _: 2),
+    'clone': (CloneDetection, lambda _: 1),
 }
 
 

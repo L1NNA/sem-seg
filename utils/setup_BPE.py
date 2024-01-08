@@ -1,6 +1,7 @@
 from transformers import RobertaTokenizer, RobertaTokenizerFast
 
 GRAPH_CODE_BERT = 'microsoft/graphcodebert-base'
+LONGFORMER = 'allenai/longformer-base-4096'
 TOKENIZER = {
     'tokenizer': None
 }

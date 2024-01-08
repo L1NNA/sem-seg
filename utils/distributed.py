@@ -47,6 +47,9 @@ def wrap_model(args:Config, model):
     model = model.to(args.device)
     if args.distributed:
         model = DDP(
-            model
+            model,
+            find_unused_parameters=True
         )
+    if args.is_host:
+        print(model)
     return model

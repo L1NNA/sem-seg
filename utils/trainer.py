@@ -27,10 +27,9 @@ def train(
         config:Config, model:nn.Module,
         train_loader:DataLoader, val_loader:DataLoader,
         optimizer:optim.Optimizer,
-        scheduler:Optional[optim.lr_scheduler._LRScheduler],
         init_epoch:int=0
     ):
-    criterion = nn.CrossEntropyLoss()
+    criterion = nn.CrossEntropyLoss() if config.output_dim > 1 else nn.BCELoss()
 
     for epoch in range(init_epoch, config.epochs):
         if isinstance(train_loader.sampler, DistributedSampler):
@@ -63,10 +62,10 @@ def train(
         if config.distributed:
             dist.reduce(stat, 0)
         if config.is_host:
-            train_loss = stat[0] / stat[1]
+            train_loss_result = stat[0] / stat[1]
             print("Epoch {0}: Train Loss: {1:.7f}" \
-                .format(epoch + 1, train_loss))
-        test(config, model, val_loader, 'Epoch {} validation'.format(epoch))
+                .format(epoch + 1, train_loss_result))
+        test(config, model, val_loader, 'Epoch {} validation'.format(epoch+1))
         if config.distributed:
             dist.barrier()
         train_loss.clear()
@@ -117,11 +116,13 @@ def test(config:Config, model, test_loader, name):
             outputs = model(x)
 
             y = y[:, -1]
-            probs = torch.softmax(outputs, dim=1)
-            predicted = torch.argmax(probs, dim=1)
+            probs = torch.softmax(outputs, dim=1) if config.output_dim > 1 else y
+            predicted = torch.argmax(probs, dim=1) if config.output_dim > 1 else torch.round(probs)
 
             y = y.detach().cpu()
-            probs = probs.detach().cpu()[:, 1]
+            probs = probs.detach().cpu()
+            if config.output_dim > 1:
+                probs = probs[:, 1]
             predicted = predicted.detach().cpu()
 
             labels = y if labels is None else torch.cat((labels, y))

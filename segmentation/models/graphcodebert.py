@@ -22,16 +22,14 @@ class GraphCodeBERT(nn.Module):
     num_layers=12
     num_heads=12
     d_ff=3072
+    seq_len=512
     """
 
     def __init__(self, config:Config, output_dim) -> None:
         super(GraphCodeBERT, self).__init__()
         self.config = config
         self.output_size = output_dim
-        
-        self.cls_tokens = torch.tensor([get_tokenizer().bos_token_id]).to(config.device)
-        self.cls_tokens = self.cls_tokens.repeat(config.batch_size, 1)
-        self.cls_tokens.requires_grad = False
+        self.cls_token_id = get_tokenizer().cls_token_id
 
         bert_config = RobertaConfig.from_pretrained(GRAPH_CODE_BERT)
         self.encoder = RobertaModel.from_pretrained(GRAPH_CODE_BERT,
@@ -41,10 +39,13 @@ class GraphCodeBERT(nn.Module):
         self.output = nn.Linear(bert_config.hidden_size, self.output_size)
 
     def forward(self, x:torch.Tensor):
-        # start from 1 since 0 is for bos token
-        x = torch.cat([self.cls_tokens[:x.size(0)], x], dim=1)
-        position_idx = torch.arange(x.size(1), dtype=torch.long, device=x.device)
-        y = self.encoder(x, position_ids=position_idx).last_hidden_state
-        y = self.output(y)
+        # add cls token at the beginning
+        b = x.size(0)
+        cls_tokens = torch.full((b, 1), self.cls_token_id).to(x.device)
+        x = torch.cat([cls_tokens, x[:,:-1]], dim=1)
+
+        position_ids = torch.arange(x.size(1), dtype=torch.long, device=x.device)
+        y = self.encoder(x, position_ids=position_ids).last_hidden_state
         y = cls_pooling(y)
+        y = self.output(y)
         return y

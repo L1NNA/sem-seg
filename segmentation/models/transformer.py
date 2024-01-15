@@ -4,7 +4,7 @@ import math
 
 from layers.embeddings import PositionalEncoding
 from layers.masking import create_masking
-from layers.pooling import next_token_pooling
+from layers.pooling import causal_pooling
 from layers.transformer import TransformerLayer
 from utils.config import Config
 
@@ -60,5 +60,5 @@ class Transformer(nn.Module):
             x, attn = layer(x, masking=masking)
             attns[f'attn_{i}'] = attn
         output = self.output(x)
-        output = next_token_pooling(output)
+        output = causal_pooling(output)
         return output

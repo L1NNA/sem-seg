@@ -17,7 +17,6 @@ class Config:
         self.training:bool
         self.validation:bool
         self.testing:bool
-        self.segmentation:Optional[str]
         
         self.data_path:str
         self.data:str
@@ -41,6 +40,10 @@ class Config:
         # cats
         self.n_windows:int
         self.w_layers:int
+        # auto bert
+        self.bert_name:Optional[str]
+        # COE
+        self.sim_loss:str
 
         # self.itr:int
         self.epochs:int

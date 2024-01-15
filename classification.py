@@ -5,15 +5,14 @@ import torch
 from torch import optim
 
 from labeling.data_loader.load_classification import load_classification, ClassificationDataset
-from labeling.models.gzip_classification import GzipClassification, CompressLoopClassification, TokenLoopClassification
-from labeling.models.cybertron import Cybertron, train_cybertron, test_cybertron
-from labeling.models.longformer import LongFormer
+from clone.models.gzip_classification import GzipClassification, CompressLoopClassification, TokenLoopClassification
+from clone.models.cybertron import Cybertron, train_cybertron, test_cybertron
 from labeling.data_loader.binary_classification import BinaryClassification
 from utils.setup_BPE import get_tokenizer
 from utils.config import Config
 from utils.checkpoint import load, save
 from utils.trainer import train, test
-from utils.distributed import distribute_dataset, setup_device, wrap_model
+from utils.distributed import distribute_dataset, setup_device, distribute_model
 
 def test_gzip_classification():
     config = Config()
@@ -91,9 +90,9 @@ def force_cybertron():
     config.is_host = True
     model = model.to(config.device)
 
-    init_epoch = load(config, model, optimizer, None)
+    init_epoch = load(config, model, optimizer)
     train_cybertron(model, train_loader, val_loader, config.epochs, config.device, optimizer, init_epoch)
-    save(config, model, optimizer, None)
+    save(config, model, optimizer)
     test_cybertron(model, test_loader, config.device)
 
 force_cybertron()

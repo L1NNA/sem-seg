@@ -1,3 +1,7 @@
+"""
+“Low-Resource” Text Classification: A Parameter-Free Classification Method with Compressors
+https://aclanthology.org/2023.findings-acl.426
+"""
 import multiprocessing
 from collections import defaultdict
 

@@ -29,7 +29,7 @@ def train(
         optimizer:optim.Optimizer,
         init_epoch:int=0
     ):
-    criterion = nn.CrossEntropyLoss() if config.output_dim > 1 else nn.BCELoss()
+    criterion = nn.CrossEntropyLoss()
 
     for epoch in range(init_epoch, config.epochs):
         if isinstance(train_loader.sampler, DistributedSampler):
@@ -116,13 +116,11 @@ def test(config:Config, model, test_loader, name):
             outputs = model(x)
 
             y = y[:, -1]
-            probs = torch.softmax(outputs, dim=1) if config.output_dim > 1 else y
-            predicted = torch.argmax(probs, dim=1) if config.output_dim > 1 else torch.round(probs)
+            probs = torch.softmax(outputs, dim=1)
+            predicted = torch.argmax(probs, dim=1)
 
             y = y.detach().cpu()
             probs = probs.detach().cpu()
-            if config.output_dim > 1:
-                probs = probs[:, 1]
             predicted = predicted.detach().cpu()
 
             labels = y if labels is None else torch.cat((labels, y))
@@ -136,7 +134,7 @@ def test(config:Config, model, test_loader, name):
             for _ in range(config.world_size)
         ] if config.is_host else None
         float_stats = [
-            torch.zeros(logits.size(0), dtype=torch.float32).to(config.device) \
+            torch.zeros(logits.size(), dtype=torch.float32).to(config.device) \
             for _ in range(config.world_size)
         ] if config.is_host else None
         int_values = torch.stack((predictions, labels)).to(config.device)
@@ -146,13 +144,13 @@ def test(config:Config, model, test_loader, name):
 
         if config.is_host:
             stat = torch.cat(int_stats, dim=1)
-            predictions = stat[0]
-            labels = stat[1]
-            logits = torch.cat(float_stats)
+            predictions = stat[0].cpu()
+            labels = stat[1].cpu()
+            logits = torch.cat(float_stats).cpu()
 
     if config.is_host:
         total = labels.size(0)
-        accuracy, precision, recall, f1 = confusion(labels, predictions)
+        accuracy, precision, recall, f1 = confusion(labels, predictions, logits.size(1))
         auroc = calculate_auroc(labels, logits)
 
         print("{}: Accuracy: {:.2f}%, Precision: {:.2f}, Recall: {:.2f}, F1: {:.2f}, AUCROC: {:.2f}, Total: {}"\

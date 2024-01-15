@@ -2,24 +2,26 @@ import os
 import torch
 from collections import OrderedDict
 
+from torch.nn.parallel import DistributedDataParallel as DDP
+
 from utils.config import Config
 
 
-
 def load_checkpoint(path, model, optimizer, config):
-    # the model is saved from gpu0 so we need to map it to CPU first
-    state = torch.load(path, map_location=lambda storage, _: storage)
+    state = torch.load(path)
     init_epoch = state["epoch"]
-    if config.distributed:
-        model.load_state_dict(state["model"])
+    if isinstance(model, DDP):
+        model.module.load_state_dict(state["model"])
     else:
-        new_state_dict = OrderedDict()
-        for k, v in state["model"].items():
-            name = k[7:] if k.startswith('module.') else k  # remove `module.` prefix
-            new_state_dict[name] = v
-        model.load_state_dict(new_state_dict)
+        model.load_state_dict(state["model"])
+    # new_state_dict = OrderedDict()
+    # for k, v in state["model"].items():
+    #     name = k[7:] if k.startswith('module.') else k  # remove `module.` prefix
+    #     new_state_dict[name] = v
+    # model.load_state_dict(new_state_dict)
     if optimizer is not None:
         optimizer.load_state_dict(state["optimizer"])
+    del state
     return init_epoch
 
 def load(config:Config, model, optimizer):
@@ -43,7 +45,7 @@ def save(config:Config, model, optimizer):
     checkpoint = os.path.join(config.checkpoint, config.model_name + '.pt')
     state = dict()
     state["epoch"] = config.epochs
-    state["model"] = model.state_dict()
+    state["model"] = model.module.state_dict() if config.distributed else model.state_dict()
     state["optimizer"] = optimizer.state_dict()
     torch.save(state, checkpoint)
     if config.is_host:

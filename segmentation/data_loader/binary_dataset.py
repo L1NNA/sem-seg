@@ -7,31 +7,27 @@ from torch.utils.data import Dataset
 from tqdm import tqdm
 
 from utils.config import Config
+from utils.dist_dataset import DistDataset
 
 
-class BinaryDataset(Dataset):
+class BinaryDataset(DistDataset):
     """
     Classifies whether the current window has
     a segment boundary or not, this dataset does not need tokenization
     """
 
-    def __init__(self, config:Config, name):
-        self.config = config
-        self.token_path = join(config.data_path, name)
-        self.seq_len = config.seq_len
-        
-        self.max_samples = config.max_samples
-        self.cache_path = join(config.data_path, 'cache',
-            f'{name}_binary_{self.seq_len}_{self.max_samples}.pt')
+    def __init__(self, config:Config, stage):
+        super().__init__(config, f'binary_{config.seq_len}_{config.max_samples}', stage)
 
+        self.token_path = join(config.data_path, stage)
+        self.seq_len = config.seq_len
+        self.max_samples = config.max_samples
+        self.cache_path = join(config.data_path, 'cache', f'{self.name}.pt')
         self.segments = []
 
     def load_data(self):
         
         if exists(self.cache_path):
-            return
-        
-        if not self.config.is_host:
             return
 
         x_files = glob.glob(join(self.token_path, '*.x.pt'))

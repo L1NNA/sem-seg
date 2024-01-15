@@ -5,13 +5,12 @@ import numpy as np
 import torch
 
 from segmentation.models import cats, cosformer, graphcodebert, transformer
-from labeling.models import longformer
-from segmentation.data_loader import load_dataset, load_tokenizer
-from segmentation.predictor import segmentation
+from layers import autobert
+from utils.data_utils import load_dataset, load_tokenizer
 from utils.trainer import load_optimization, train, test
 from utils.checkpoint import load, save
 from utils.config import Config
-from utils.distributed import distribute_dataset, setup_device, wrap_model
+from utils.distributed import distribute_dataset, setup_device, distribute_model
 from utils.metrics import number_of_parameters
 
 
@@ -19,8 +18,8 @@ def define_argparser():
     parser = argparse.ArgumentParser(description='')
 
     # loading model
-    parser.add_argument('--model', required=True, default='transformer',
-                        choices=['transformer', 'cosformer', 'cats', 'graphcodebert', 'longformer'],
+    parser.add_argument('--model', required=True,
+                        choices=['transformer', 'cosformer', 'cats', 'graphcodebert', 'longformer', 'autobert'],
                         help='model name')
     parser.add_argument('--model_id', type=str, required=True,
                         help='the unique name of the current model')
@@ -33,17 +32,17 @@ def define_argparser():
     parser.add_argument('--training', action='store_true', help='if training')
     parser.add_argument('--validation', action='store_true', help='if validation')
     parser.add_argument('--testing', action='store_true', help='if testing')
-    parser.add_argument('--segmentation', type=str, default=None,
-                        help='if to segment a file')
+    # parser.add_argument('--segmentation', type=str, default=None,
+    #                     help='if to segment a file')
 
     # data_loader
     parser.add_argument('--data_path', type=str, default='./data',
                         help='the path of data files')
-    parser.add_argument('--data', required=True, default='binary',
-                        choices=['seq', 'binary', 'labeling'], help='datasaets')
-    parser.add_argument('--database', type=str, default='./database',
-                        help='the path to the packages database')
-    parser.add_argument('--num_workers', type=int, default=1,
+    parser.add_argument('--data', required=True,
+                        choices=['segmentation', 'labeling', 'coe'], help='datasaets')
+    # parser.add_argument('--database', type=str, default='./database',
+    #                     help='the path to the packages database')
+    parser.add_argument('--num_workers', type=int, default=4,
                         help='number of workers')
     parser.add_argument('--batch_size', type=int, default=32,
                         help='batch size')
@@ -55,6 +54,7 @@ def define_argparser():
     cats.add_args(parser)
     cosformer.add_args(parser)
     graphcodebert.add_args(parser)
+    autobert.add_args(parser)
 
     # optimization
     parser.add_argument('--epochs', type=int, default=10,
@@ -97,11 +97,10 @@ def load_model(config:Config, output_dim):
         'cosformer': cosformer.Cosformer,
         'cats': cats.CATS,
         'graphcodebert': graphcodebert.GraphCodeBERT,
-        'longformer': longformer.LongFormer
+        'autobert': autobert.AutoBERT
     }
 
     model = models[config.model](config, output_dim)
-    model = wrap_model(config, model)
 
     if not config.model_name:
         # build name
@@ -133,11 +132,14 @@ def main(arg=None):
     else:
         optimizer = None
 
+    # distribute model after weights loaded
+    model = distribute_model(config, model)
     # load checkpoint
     init_epoch = load(config, model, optimizer)
     if config.is_host:
         print('Number of parameters for {}: {}' \
           .format(config.model_name, number_of_parameters(model)))
+    
 
     # training
     if config.training:
@@ -152,10 +154,6 @@ def main(arg=None):
     # testing
     if config.testing:
         test(config, model, test_loader, 'Test')
-
-    # inference
-    if config.segmentation:
-        segmentation(config, model)
 
 if __name__ == "__main__":
     main()

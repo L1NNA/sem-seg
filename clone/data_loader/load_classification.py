@@ -8,6 +8,7 @@ from torch.utils.data import Dataset
 
 from utils.config import Config
 from utils.setup_BPE import get_tokenizer
+from labeling.data_loader.label_utils import get_seg_type, SegType
 
 
 def load_classification(files_path, range_len=100):
@@ -60,12 +61,12 @@ def get_random_index(span, indices):
 
 class ClassificationDataset(Dataset):
 
-    def __init__(self, files_path, name, range_len=100, limit=8000):
+    def __init__(self, files_path, name, range_len=100, limit=10000):
         self.files_path = join(files_path, name)
         self.token_cache = join(files_path, 'cache',
-            f'{name}_classification_tokens.pt')
+            f'{name}_external_classification_tokens.pt')
         self.indices_cache = join(files_path, 'cache',
-            f'{name}_classification_{range_len}_indices.pt')
+            f'{name}_external_classification_{range_len}_indices.pt')
         self.range_len = range_len
         self.seg_tokens = []
         self.indices = []
@@ -83,7 +84,10 @@ class ClassificationDataset(Dataset):
             # load files and tokenization
             for seg_file in tqdm(seg_files, desc='Load files'):
                 segs = torch.load(seg_file)
-                for seg, _ in segs:
+                for seg, label in segs:
+                    seg_type = get_seg_type(label)
+                    if seg_type is not SegType.EXTERNAL:
+                        continue 
                     tokens = tokenizer.encode(seg, add_special_tokens=False)
                     if len(tokens) < 1000 or len(tokens) > 10000:
                         continue

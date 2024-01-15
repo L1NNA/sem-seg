@@ -17,3 +17,7 @@ pip install transformers
 - [x] Optimize data loader: more data and sync dataset
 - [x] predicter: add Tokenizer & predicter
 - [ ] add logger
+
+### Failed ideas
+- [x] Longformer
+- [x] Gzip()

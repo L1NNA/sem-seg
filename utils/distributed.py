@@ -43,13 +43,13 @@ def distribute_dataset(config:Config, dataset, batch_size):
                       shuffle=not config.distributed,
                       sampler=sampler)
 
-def wrap_model(args:Config, model):
+def distribute_model(args:Config, model):
     model = model.to(args.device)
     if args.distributed:
         model = DDP(
             model,
-            find_unused_parameters=True
+            # find_unused_parameters=True
         )
-    if args.is_host:
-        print(model)
+    # if args.is_host:
+    #     print(model)
     return model

@@ -9,7 +9,7 @@ def cls_pooling(output):
     # b x s x d
     return output[:, 0, :]
 
-def next_token_pooling(output):
+def causal_pooling(output):
     # b x s x d
     return output[:, -1, :]
 

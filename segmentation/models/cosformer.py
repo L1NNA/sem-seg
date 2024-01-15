@@ -9,7 +9,7 @@ import torch
 import torch.nn as nn
 
 from layers.ffn import FFN
-from layers.pooling import next_token_pooling
+from layers.pooling import causal_pooling
 from utils.config import Config
 
 
@@ -142,5 +142,5 @@ class Cosformer(nn.Module):
         for layer in self.layers:
             x = layer(x, x)
         output = self.output(x)
-        output = next_token_pooling(output)
+        output = causal_pooling(output)
         return output

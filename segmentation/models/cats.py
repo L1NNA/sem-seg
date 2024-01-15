@@ -42,7 +42,7 @@ class CATS(nn.Module):
 
         # add bos token at the beginning of each window
         self.cls_tokens = torch.tensor([get_tokenizer().bos_token_id]).to(config.device)
-        batch_size = max(config.batch_size, config.test_batch_size)
+        batch_size = config.batch_size
         self.cls_tokens = self.cls_tokens.expand(batch_size, self.w, 1)
         self.cls_tokens.requires_grad = False
 
@@ -71,14 +71,14 @@ class CATS(nn.Module):
         w, s_ = self.w, self.s_
 
         # add bos token
-        x = x.reshape(b, w, -1) # (b*w) x (s'-1)
-        x = torch.cat([self.cls_tokens[:b], x], dim=-1) # (b*w) x s'
+        x = x.reshape(b, w, -1) # b x w x (s'-1)
+        x = torch.cat([self.cls_tokens[:b], x], dim=-1) # b x w x s'
         x = x.reshape(b, w*s_) # b x (s+w)
 
         # wording embedding and positional encoding
         x = self.embedding(x) * self.embedding_scale # b x (s+w) x d
         x = x.reshape(b*w, s_, -1) # (b*w) x s' x d
-        x += self.pe(x) # b x s' x d
+        x += self.pe(x) # (b*w) x s' x d
         
         # encode each sentence
         for layer in self.sent_encoder:
@@ -91,7 +91,7 @@ class CATS(nn.Module):
         y += self.pe(y) # b x w x d
         # encode each window (paragraph)
         for layer in self.window_encoder:
-            # # b x w x d
+            # b x w x d
             y, _ = layer(y)
         # b x w x 2
         y = self.seg(y)

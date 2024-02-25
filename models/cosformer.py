@@ -123,8 +123,7 @@ class Cosformer(nn.Module):
         self.d_model = args.d_model
         self.dropout = args.dropout
         self.d_ff = args.d_ff
-        self.mem_len = args.mem_len
-        self.max_len = max(args.seq_len, args.mem_len)
+        self.max_len = args.seq_len
         self.vocab_size = args.vocab_size
         self.output_size = output_dim
         

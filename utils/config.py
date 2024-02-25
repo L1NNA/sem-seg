@@ -12,7 +12,9 @@ class Config:
         self.model_id:str
         self.model_name:Optional[str]
         self.checkpoint:str
+        self.log_dir:str
         self.seed:int
+        self.comment:str
 
         self.training:bool
         self.validation:bool
@@ -29,6 +31,9 @@ class Config:
         self.mem_len:int
         self.num_workers:int
 
+        # labeling
+        self.skip_label:int
+
         # transformer
         self.d_model:int
         self.n_heads:int
@@ -42,6 +47,7 @@ class Config:
         self.w_layers:int
         # auto bert
         self.bert_name:Optional[str]
+        self.add_cls_token:bool
         # COE
         self.sim_loss:str
 

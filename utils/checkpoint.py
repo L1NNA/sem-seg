@@ -10,15 +10,16 @@ from utils.config import Config
 def load_checkpoint(path, model, optimizer, config):
     state = torch.load(path)
     init_epoch = state["epoch"]
+    
+    new_state_dict = OrderedDict() # state["model"]
+    for k, v in state["model"].items():
+        name = k[7:] if k.startswith('module.') else k  # remove `module.` prefix
+        new_state_dict[name] = v
+
     if isinstance(model, DDP):
-        model.module.load_state_dict(state["model"])
+        model.module.load_state_dict(new_state_dict)
     else:
-        model.load_state_dict(state["model"])
-    # new_state_dict = OrderedDict()
-    # for k, v in state["model"].items():
-    #     name = k[7:] if k.startswith('module.') else k  # remove `module.` prefix
-    #     new_state_dict[name] = v
-    # model.load_state_dict(new_state_dict)
+        model.load_state_dict(new_state_dict)
     if optimizer is not None:
         optimizer.load_state_dict(state["optimizer"])
     del state

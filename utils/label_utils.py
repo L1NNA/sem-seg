@@ -7,7 +7,7 @@ class SegType(Enum):
     UNK = 0
     BOOTSTRAP = 1
     LOCAL = 2
-    EXTERNAL = 3
+    NODE_MODULE = 3
 
     @classmethod
     def max_value(self, seg_type)->bool:
@@ -39,7 +39,7 @@ def get_seg_type(label:str) -> SegType:
 
     # The segment refers to a node module package
     if label.find(NODE_MODULES) > -1:
-        return SegType.EXTERNAL
+        return SegType.NODE_MODULE
     
     # label boostrap segments
     blabel = label.split(' ')[0]
@@ -70,6 +70,6 @@ def label_seg(labels:List[str]) -> int:
             curr_value = seg_type.value
     return curr_value
 
-def get_num_of_labels():
-    return len(SegType)
+def get_num_of_labels(config):
+    return len(SegType) - config.skip_label
 

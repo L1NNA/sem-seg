@@ -25,16 +25,30 @@ class AutoBERT(nn.Module):
         self.encoder = AutoModel.from_pretrained(model_path,
                                                 config=bert_config,
                                                 add_pooling_layer=False)
-        self.output = nn.Linear(bert_config.hidden_size, self.output_size)
+        if self.output_size > 0:
+            self.output = nn.Linear(bert_config.hidden_size, self.output_size)
 
-    def forward(self, x):
+    def forward(self, x, masking=None):
         # add cls token at the beginning
-        b = x.size(0)
-        cls_tokens = torch.full((b, 1), self.cls_token_id).to(x.device)
-        x = torch.cat([cls_tokens, x], dim=1)
+        x = self._add_tokens(x, self.cls_token_id)
+        if masking is not None:
+            masking = self._add_tokens(masking, 1)
         # encoding
-        h = self.encoder(x).last_hidden_state # b x l x d
+        h = self.encoder(x, attention_mask=masking).last_hidden_state # b x l x d
         # pooling
-        h = cls_pooling(h) # b x d
-        output = self.output(h)
-        return output
+        y = cls_pooling(h) # b x d
+        if self.output_size > 0:
+            y = self.output(y)
+        return y
+
+    def _add_tokens(self, x, value):
+        b = x.size(0)
+        if self.config.n_windows > 1:
+            b *= self.config.n_windows
+            x = x.reshape(b, -1)
+        tokens = torch.full((b, 1), value).to(x.device)
+        x = torch.cat([tokens, x], dim=1)
+        if self.config.n_windows > 1:
+            b = b // self.config.n_windows
+            x = x.reshape(b, -1)
+        return x

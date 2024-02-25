@@ -3,6 +3,7 @@ __pycache__/
 *.py[cod]
 *$py.class
 *.bin
+dump
 
 # Jupyter Notebook
 .ipynb_checkpoints
@@ -15,3 +16,4 @@ test.ipynb
 # cache files
 data
 checkpoints
+logs

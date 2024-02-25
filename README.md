@@ -1,5 +1,5 @@
-# SemSeg
-Semantic Code Segmentation, paper [link](https://www.overleaf.com/project/6331cafdb13619ac9254afd8)
+# SBoM
+Software Bill-of-Materials by Chain-of-Experts, paper [link](https://www.overleaf.com/project/6331cafdb13619ac9254afd8)
 
 ## Setup
 
@@ -10,14 +10,24 @@ conda activate sem_seg
 # Install pytorch with cuda
 pip install numpy scikit-learn # tools
 pip install transformers
+pip install tensorboard
 ```
 <!-- pip install hnswlib # indexing -->
 
-### TODO
-- [x] Optimize data loader: more data and sync dataset
-- [x] predicter: add Tokenizer & predicter
-- [ ] add logger
 
-### Failed ideas
-- [x] Longformer
-- [x] Gzip()
+### Ideas v - Yes, x - No 
+
+- [ ] CoE
+    - [x] Coefficients for Losses: plays no role
+    - [v] Shared backbone has no impact on performance compared to standlone models
+    - [x] FFN output for n classes - not relevant
+    - [ ] More windows?
+- Seg:
+    - [ ] longer or shorter?
+    - [x] Multiple windows: slow, same performance
+- Cls
+    - [ ] longer sequences are generally better
+    - [x] segment windows has low performance
+- Ccs
+    - [x] Longformer
+    - [x] Gzip()

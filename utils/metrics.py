@@ -31,7 +31,7 @@ def calculate_auroc(labels, logits):
     if num_of_classes > 2:
         return roc_auc_score(labels, logits, multi_class='ovr')
     else:
-        return roc_auc_score(labels, logits, multi_class='ovr')
+        return roc_auc_score(labels, logits)
 
 
 def number_of_parameters(model):

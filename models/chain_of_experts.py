@@ -1,17 +1,17 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from transformers import RobertaConfig, RobertaModel
+from transformers import AutoConfig, AutoModel, BertConfig
 
-from utils.setup_BPE import GRAPH_CODE_BERT, get_tokenizer
+from utils.setup_BPE import GRAPH_CODE_BERT, get_tokenizer, get_model_path
 from layers.pooling import cls_pooling
-from layers.transformer import TransformerLayer
+from layers.transformer import TransformerLayer, FFN
 from utils.config import Config
 
 def add_args(parser):
     parser.add_argument("--sim_loss", type=str, default="mse",
-                        choices=("mse", "s_mse", "s_cosine"),
-                        help="Activation function for cosformer",
+                        choices=("mse", "cosine", "s_mse", "s_cosine"),
+                        help="Regression loss for clone search",
     )
 
 
@@ -20,28 +20,28 @@ class ChainOfExperts(nn.Module):
     def __init__(self, config:Config, num_classes):
         super(ChainOfExperts, self).__init__()
         self.w = config.n_windows
-        assert config.seq_len % self.w == 0, \
-            "seq_len must be divisible by n_windows"
-        self.s_ = (config.seq_len // self.w) + 1
+        self.s_ = config.seq_len + 1
         self.cls_token = get_tokenizer().cls_token_id
         self.output_size = num_classes
         self.sim_loss = config.sim_loss
 
-        bert_config:RobertaConfig = RobertaConfig.from_pretrained(GRAPH_CODE_BERT)
-        self.encoder = RobertaModel.from_pretrained(GRAPH_CODE_BERT,
-                                                    config=bert_config,
-                                                    add_pooling_layer=False)
+        model_path = get_model_path(config.bert_name)
+        bert_config:BertConfig = AutoConfig.from_pretrained(model_path)
+        self.encoder = AutoModel.from_pretrained(model_path,
+                                                config=bert_config,
+                                                add_pooling_layer=False)
         d = bert_config.hidden_size
+        
+        self.decoder = nn.ModuleList([
+            TransformerLayer(d, config.n_heads, config.d_ff, config.dropout)
+            for _ in range(config.w_layers)
+        ])
 
         # Segmentation Classifier
         self.seg_output = nn.Linear(d, 2)
         # Labeling Classifier
         self.cls_output = nn.Linear(d, num_classes)
         # Similarity Regression
-        self.decoder = nn.ModuleList([
-            TransformerLayer(d, bert_config.num_attention_heads, bert_config.intermediate_size, config.dropout)
-            for _ in range(config.w_layers)
-        ])
     
     def _fill_masking(self, attention_mask, b_, device):
         if attention_mask is not None:
@@ -58,7 +58,7 @@ class ChainOfExperts(nn.Module):
 
     def _encode(self, x, attention_mask, b, w):
         # Pass inputs through GraphCodeBERT
-        h = self.encoder(input_ids=x, attention_mask=attention_mask) # (b*w) x s' x d
+        h = self.encoder(input_ids=x, attention_mask=attention_mask).last_hidden_state # (b*w) x s' x d
         h = cls_pooling(h) # (b*w) x d
         h = h.reshape(b, w, -1) # b x w x d
         return h
@@ -75,29 +75,50 @@ class ChainOfExperts(nn.Module):
 
         # add cls token
         x = self._reshape_inputs(x, b_) # (b*w) x s'
-        attention_mask = self._fill_masking(attention_mask, b_)
+        attention_mask = self._fill_masking(attention_mask, b_, x.device)
         y = self._reshape_inputs(y, b_) # (b*w) x s'
-        y_attention_mask = self._fill_masking(y_attention_mask, b_)
+        y_attention_mask = self._fill_masking(y_attention_mask, b_, x.device)
         
         # encoding
         hx = self._encode(x, attention_mask, b, w) # b x w x d
-        hy = self._encode(y, y_attention_mask, b, w) # b x w x d
-        # Decoding
+        # hy = self._encode(y, y_attention_mask, b, w) # b x w x d
+        # # Decoding
         px = self._decode(hx)
-        py = self._decode(hy)
+        # py = self._decode(hy)
 
+        # similarity regression
+        # similarity = -F.cosine_similarity(hx, hy, dim=1).mean()
         # Segmentation
         segs = self.seg_output(px) # b x w x 2
         # Labeling
         labeling = self.cls_output(px) # b x w x cls
-        # similarity regression
-        similarity = self.similarity_regression(hx, hy, px, py)
 
-        return segs, labeling, similarity
+        return segs, labeling, 0
+
+    def inference(self, x, attention_mask):
+        b = x.size(0)
+        w, s_ = self.w, self.s_
+        b_ = b * w
+
+        # add cls token
+        x = self._reshape_inputs(x, b_) # (b*w) x s'
+        attention_mask = self._fill_masking(attention_mask, b_, x.device)
+        
+        # encoding
+        hx = self._encode(x, attention_mask, b, w) # b x w x d
+        # Decoding
+        px = self._decode(hx)
+        # Segmentation
+        segs = self.seg_output(px) # b x w x 2
+        # Labeling
+        labeling = self.cls_output(px) # b x w x cls
+        return segs, labeling, hx
 
     def similarity_regression(self, hx, hy, px, py):
         if self.sim_loss == 'mse':
             return F.mse_loss(px, py)
+        if self.sim_loss == 'cosine':
+            return -F.cosine_similarity(px, py, dim=2).sum(dim=1).mean()
         return self._siamese_similarity_loss(px, hy) / 2 \
             + self._siamese_similarity_loss(py, hx) / 2
 

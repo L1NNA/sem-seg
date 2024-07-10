@@ -1,15 +1,27 @@
-import glob
-from os.path import join, exists
+from os.path import exists
 
-import numpy as np
 import torch
-from tqdm import tqdm
-from torch.utils.data import Dataset
 
 from utils.config import Config
 from utils.setup_BPE import get_tokenizer
 from utils.dist_dataset import DistDataset
-from utils.label_utils import get_seg_type
+
+BOOTSTRAPS = (
+    'webpack/universalModuleDefinition',
+    'webpack/bootstrap',
+    'webpack/startup',
+    '/runtime/[a-zA-Z]+',
+    '/external',
+)
+
+def get_simple_label(label:str) -> int:
+    
+    if label is None:
+        return 0
+    for boostrap in BOOTSTRAPS:
+        if re.match('^webpack://.*' + boostrap + '.*', label):
+            return 0
+    return 1
 
 
 class COEDataset(DistDataset):
@@ -28,25 +40,24 @@ class COEDataset(DistDataset):
         tokens = []
         segs = []
         labels = []
-        for token, seg, label in self.get_all(i, j, self.seq_len):
+        src_tokens = []
+        for token, seg, label, src_token in self.get_all(i, j, self.seq_len, self.pad_token_id):
             tokens.append(token)
             segs.append(seg)
             labels.append(get_seg_type(label).value)
+            src_tokens.append(src_token)
 
         x = torch.tensor(tokens, dtype=torch.long)
-        # y = torch.tensor(tokens, dtype=torch.long)
+        x_mask = torch.ones_like(x, dtype=torch.long)
+        y = torch.tensor(src_tokens, dtype=torch.long)
+        y_mask = torch.where(y == self.pad_token_id, 0, 1)
         seg_tensor = torch.tensor(segs, dtype=torch.long).reshape(self.n_windows, -1)
         seg_tensor = seg_tensor.max(dim=1).values
-        label_ori = torch.tensor(labels, dtype=torch.long)
-        label_tensor = label_ori.reshape(self.n_windows, -1)
+        label_tensor = torch.tensor(labels, dtype=torch.long).reshape(self.n_windows, -1)
         label_tensor = label_tensor.max(dim=1).values
-        # masking = label_tensor.unsqueeze(-1).repeat(1, self.window_len).reshape(-1) == label_ori
-        # y = torch.where(masking, y, torch.full((self.seq_len, ), self.pad_token_id, dtype=torch.long))
-        # y_mask = masking.long()
+        y_mask = torch.where(y == self.pad_token_id, 0, 1)
 
-        del tokens, segs, labels
-
-        return x, seg_tensor, label_tensor
+        return x, x_mask, seg_tensor, label_tensor, y, y_mask
 
     def load_data(self):
         
@@ -56,8 +67,8 @@ class COEDataset(DistDataset):
         print('Loading dataset...')
         for i, seg_file in enumerate(self.tokens):
 
-            seg_file:List[Tuple[List[str], str]]
-            token_ids = [token for tokens,_ in seg_file for token in tokens]
+            seg_file:List[Tuple[List[str], str, List[str]]]
+            token_ids = [token for tokens,_,_ in seg_file for token in tokens]
             if len(token_ids) < self.seq_len:
                 continue
 

@@ -33,6 +33,7 @@ class Config:
 
         # labeling
         self.skip_label:int
+        self.skip_seg:bool
 
         # transformer
         self.d_model:int
@@ -47,9 +48,9 @@ class Config:
         self.w_layers:int
         # auto bert
         self.bert_name:Optional[str]
-        self.add_cls_token:bool
         # COE
         self.sim_loss:str
+        self.seg_masking:bool
 
         # self.itr:int
         self.epochs:int

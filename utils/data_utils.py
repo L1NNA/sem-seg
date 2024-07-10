@@ -5,6 +5,8 @@ from data_loader.labeling_dataset import LabelingDataset
 from data_loader.coe_dataset import COEDataset
 from data_loader.multi_window_segmentation_dataset import MultiWindowSegmentationDataset
 from data_loader.siamese_clone_dataset import SiameseCloneDataset
+from data_loader.single_labeling_dataset import SingleLabelingDataset
+from data_loader.coes_dataset import CoEsDataset
 from utils.setup_BPE import get_tokenizer
 from utils.dist_dataset import DistDataset
 from utils.config import Config
@@ -14,9 +16,10 @@ from utils.label_utils import get_num_of_labels
 DATASET_MAP = {
     'segmentation': (SegmentationDataset, lambda _: 2),
     'labeling': (LabelingDataset, lambda config: get_num_of_labels(config)),
-    'coe': (COEDataset, lambda config:get_num_of_labels(config)),
+    'coe': (CoEsDataset, lambda config:get_num_of_labels(config)), # COEDataset
     'siamese_clone': (SiameseCloneDataset, lambda _:0),
-    'multi_window_seg': (MultiWindowSegmentationDataset, lambda _:2)
+    'multi_window_seg': (MultiWindowSegmentationDataset, lambda _:2),
+    'single_labeling': (SingleLabelingDataset, lambda config:get_num_of_labels(config)),
 }
 
 

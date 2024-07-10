@@ -9,7 +9,7 @@ from utils.setup_BPE import get_tokenizer, get_model_path
 
 def add_args(parser):
     parser.add_argument("--bert_name", default=None,
-                        choices=['graphcodebert', 'longformer', 'sentbert'],
+                        choices=['graphcodebert', 'sentbert'],
                         help="Path to the pre-trained model",
     )
 

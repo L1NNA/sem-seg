@@ -28,6 +28,6 @@ pip install tensorboard
 - Cls
     - [ ] longer sequences are generally better
     - [x] segment windows has low performance
-- Ccs
+- Ccr
     - [x] Longformer
     - [x] Gzip()

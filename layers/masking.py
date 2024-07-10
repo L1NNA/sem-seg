@@ -26,3 +26,31 @@ def create_masking(seq_len:int, span_len:int, device:Optional[torch.device]=None
         mask_shift_len = (seq_len - mask_len) if mask_len > 0 else seq_len
         mask += torch.ones(seq_len, mem_len, device=device).tril(-mask_shift_len)
     return mask.bool()
+
+
+def create_segment_masking(seg_ids:torch.Tensor) -> torch.Tensor:
+    """
+
+    Args:
+        seg_ids: b x w
+
+    Returns:
+        b x h x w x w
+    """
+    b, w = seg_ids.size()
+    seg_ids[:, -1] = 1 # force the last token to be a boundary
+
+    masking = torch.ones(b, w, w, device=seg_ids.device)
+
+    indices = torch.where(seg_ids == 1)
+    coordinates = list(zip(indices[0].cpu().numpy(), indices[1].cpu().numpy()))
+
+    last_i, last_j = 0, 0
+    for i, j in coordinates:
+        if i != last_i:
+            last_i = i
+            last_j = 0
+        masking[i, last_j:j+1, last_j:j+1] = 0
+        last_j = j+1
+    return masking.bool().unsqueeze(1)
+    

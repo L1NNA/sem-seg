@@ -55,7 +55,7 @@ class CATS(nn.Module):
         ])
 
         # Segmentation Classifier
-        if config.data != 'siamese_clone':
+        if self.output_size > 0:
             self.seg = nn.Linear(config.d_model, self.output_size)
 
         # Auxiliary Regressor
@@ -97,7 +97,7 @@ class CATS(nn.Module):
             # b x w x d
             y, _ = layer(y)
         # b x w x 2
-        if self.config.data != 'siamese_clone':
+        if self.output_size > 0:
             y = self.seg(y)
 
         # calculate auxiliary loss

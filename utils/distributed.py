@@ -53,3 +53,17 @@ def distribute_model(args:Config, model):
     # if args.is_host:
     #     print(model)
     return model
+
+def gather_tensors(tensor, config:Config, dim=0, dest=0):
+    if tensor is None:
+        return None
+    tensor = tensor.to(config.device)
+    # Gather tensors from all processes
+    gathered = [torch.zeros_like(tensor, dtype=tensor.dtype) for _ in range(config.world_size)] \
+        if config.rank == dest else None
+    dist.gather(tensor, gathered, dest)
+
+    # Concatenate tensors along the specified dimension
+    if config.rank == dest:
+        tensor = torch.cat(gathered, dim=dim)
+    return tensor.cpu()

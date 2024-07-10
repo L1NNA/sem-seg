@@ -6,13 +6,15 @@ from transformers import AutoConfig, AutoModel, BertConfig
 from utils.setup_BPE import GRAPH_CODE_BERT, get_tokenizer, get_model_path
 from layers.pooling import cls_pooling
 from layers.transformer import TransformerLayer, FFN
+from layers.masking import create_segment_masking
 from utils.config import Config
 
 def add_args(parser):
     parser.add_argument("--sim_loss", type=str, default="mse",
                         choices=("mse", "cosine", "s_mse", "s_cosine"),
-                        help="Regression loss for clone search",
-    )
+                        help="Regression loss for clone search")
+    parser.add_argument('--seg_masking', action='store_true',
+                        help='if segmentaiton masking is applied')
 
 
 class ChainOfExperts(nn.Module):
@@ -20,10 +22,10 @@ class ChainOfExperts(nn.Module):
     def __init__(self, config:Config, num_classes):
         super(ChainOfExperts, self).__init__()
         self.w = config.n_windows
-        self.s_ = config.seq_len + 1
         self.cls_token = get_tokenizer().cls_token_id
         self.output_size = num_classes
         self.sim_loss = config.sim_loss
+        self.seg_masking = config.seg_masking
 
         model_path = get_model_path(config.bert_name)
         bert_config:BertConfig = AutoConfig.from_pretrained(model_path)
@@ -63,56 +65,38 @@ class ChainOfExperts(nn.Module):
         h = h.reshape(b, w, -1) # b x w x d
         return h
 
-    def _decode(self, h):
+    def _decode(self, h, segs):
+        masking = None
+        if self.seg_masking and segs is not None:
+            seg_ids = torch.argmax(torch.softmax(segs, dim=1), dim=2) # b x w x 2
+            masking = create_segment_masking(seg_ids) if seg_ids is not None else None
         for layer in self.decoder:
-            h, _ = layer(h) # b x w x d
+            h, _ = layer(h, masking) # b x w x d
         return h
 
-    def forward(self, x, attention_mask, y, y_attention_mask):
-        b = x.size(0)
-        w, s_ = self.w, self.s_
-        b_ = b * w
+    def forward(self, x, attention_mask):
+        px = self.representation(x, attention_mask) # b x w x d
 
-        # add cls token
-        x = self._reshape_inputs(x, b_) # (b*w) x s'
-        attention_mask = self._fill_masking(attention_mask, b_, x.device)
-        y = self._reshape_inputs(y, b_) # (b*w) x s'
-        y_attention_mask = self._fill_masking(y_attention_mask, b_, x.device)
-        
-        # encoding
-        hx = self._encode(x, attention_mask, b, w) # b x w x d
-        # hy = self._encode(y, y_attention_mask, b, w) # b x w x d
-        # # Decoding
-        px = self._decode(hx)
-        # py = self._decode(hy)
-
-        # similarity regression
-        # similarity = -F.cosine_similarity(hx, hy, dim=1).mean()
         # Segmentation
         segs = self.seg_output(px) # b x w x 2
         # Labeling
         labeling = self.cls_output(px) # b x w x cls
 
-        return segs, labeling, 0
+        return segs, labeling, px
 
-    def inference(self, x, attention_mask):
+    def representation(self, x, attention_mask):
         b = x.size(0)
-        w, s_ = self.w, self.s_
-        b_ = b * w
+        b_ = b * self.w
 
         # add cls token
         x = self._reshape_inputs(x, b_) # (b*w) x s'
         attention_mask = self._fill_masking(attention_mask, b_, x.device)
         
         # encoding
-        hx = self._encode(x, attention_mask, b, w) # b x w x d
+        hx = self._encode(x, attention_mask, b, self.w) # b x w x d
         # Decoding
-        px = self._decode(hx)
-        # Segmentation
-        segs = self.seg_output(px) # b x w x 2
-        # Labeling
-        labeling = self.cls_output(px) # b x w x cls
-        return segs, labeling, hx
+        px = self._decode(hx, None) # b x w x d
+        return px
 
     def similarity_regression(self, hx, hy, px, py):
         if self.sim_loss == 'mse':

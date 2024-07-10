@@ -10,7 +10,7 @@ def cls_pooling(output):
     return output[:, 0, :]
 
 def causal_pooling(output):
-    # b x s x d
+    # b x s x d -> b x d
     return output[:, -1, :]
 
 def any_max_pooling(output):

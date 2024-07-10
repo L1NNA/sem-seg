@@ -10,6 +10,7 @@ from torch.utils.data import Dataset
 
 from utils.config import Config
 from utils.setup_BPE import get_tokenizer
+from utils.label_utils import get_seg_type
 
 
 class DistDataset(Dataset):
@@ -105,4 +106,13 @@ class DistDataset(Dataset):
                     start += 1
                 else:
                     break
+    
+    def get_sources(self):
+        for seg_file in self.tokens:
+            for tokens, label in seg_file:
+                label_type = get_seg_type(label)
+                if label_type.value >= self.config.skip_label:
+                    yield tokens, label
+
+
 

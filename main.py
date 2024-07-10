@@ -6,8 +6,9 @@ import numpy as np
 import torch
 from torch.utils.tensorboard import SummaryWriter
 
-from models import cats, cosformer, graphcodebert, transformer, multi_cats
+from models import cats, cosformer, graphcodebert, transformer, multi_cats, single_cats
 from models import chain_of_experts, autobert, longformer
+from data_loader import labeling_dataset
 from utils.data_utils import load_dataset, load_tokenizer, DATASET_MAP
 from utils.trainer import load_optimization, train, test, train_siamese, test_siamese, train_coe, test_coe
 from utils.checkpoint import load, save
@@ -24,7 +25,8 @@ models = {
     'autobert': autobert.AutoBERT,
     'coe': chain_of_experts.ChainOfExperts,
     'multi_cats': multi_cats.MultiCATS,
-    'longformer': longformer.Longformer
+    'longformer': longformer.Longformer,
+    'single_cats': single_cats.SingleCATS,
 }
 
 
@@ -65,9 +67,7 @@ def define_argparser():
     parser.add_argument('--batch_size', type=int, default=32,
                         help='batch size')
     parser.add_argument('--seq_len', type=int, default=512,
-                        help='input sequence length')
-    parser.add_argument('--skip_label', type=int, default=0,
-                        help='number of labels to')                    
+                        help='input sequence length')               
 
     # hyper-parameters
     transformer.add_args(parser)
@@ -76,6 +76,7 @@ def define_argparser():
     graphcodebert.add_args(parser)
     autobert.add_args(parser)
     chain_of_experts.add_args(parser)
+    labeling_dataset.add_args(parser)
 
     # optimization
     parser.add_argument('--epochs', type=int, default=10,
@@ -117,13 +118,13 @@ def load_model(config:Config, output_dim):
 
     if not config.model_name:
         # build name
-        config.model_name = '{}_{}_{}_window{}_dim{}{}'.format(
-            config.model_id,
-            config.model,
+        config.model_name = '{}_{}_{}_seq{}{}_dim{}'.format(
             config.data,
+            ('auto_' + config.bert_name) if config.model == 'autobert' else config.model,
+            config.model_id,
             config.seq_len,
-            config.d_model,
-            ('_' + config.comment) if config.comment else ''
+            '_win{}'.format(config.n_windows) if config.n_windows > 1 else '',
+            config.d_model
         )
     return model
 
@@ -167,6 +168,7 @@ def main(arg=None):
     if config.training:
         trainer(config, model, train_loader, val_loader,
             optimizer, writer, init_epoch)
+        init_epoch = config.epochs
         if config.is_host:
             save(config, model, optimizer)
     elif config.validation:

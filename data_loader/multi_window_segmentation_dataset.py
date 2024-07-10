@@ -43,11 +43,9 @@ class MultiWindowSegmentationDataset(DistDataset):
 
     def __getitem__(self, index):
         i, j, labels = self.indices[index]
-        seg_file = self.tokens[i]
-        all_tokens:List[int] = [token for tokens,_ in seg_file for token in tokens]
-        tokens = all_tokens[j:j+self.seq_len]
+        tokens = []
+        for token,_,_ in self.get_all(i, j, self.seq_len):
+            tokens.append(token)
         x = torch.tensor(tokens, dtype=torch.long)
         y = torch.tensor(labels, dtype=torch.long)
-        del all_tokens
-        del tokens
         return x, y

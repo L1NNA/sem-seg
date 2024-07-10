@@ -16,7 +16,7 @@ from utils.label_utils import get_seg_type, SegType
 class SiameseCloneDataset(DistDataset):
 
     def __init__(self, config:Config, stage):
-        super().__init__(config, f'{config.data}_{config.seq_len}_{config.n_windows}', stage)
+        super().__init__(config, f'{config.data}_{config.seq_len}_{config.n_windows}_{config.skip_label}', stage)
         self.window_size = config.seq_len // config.n_windows
 
     def __getitem__(self, index):
@@ -47,7 +47,7 @@ class SiameseCloneDataset(DistDataset):
             for tokens, seg_name in seg_file:
                 seg_type = get_seg_type(seg_name)
                 remainder = j % self.window_size
-                if seg_type == SegType.NODE_MODULE \
+                if seg_type >= self.config.skip_label \
                   and remainder + len(tokens) >= self.seq_len \
                   and len(tokens) > self.seq_len:
                     self.indices.append((i, j-remainder, i, j, 1))

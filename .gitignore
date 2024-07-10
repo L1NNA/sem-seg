@@ -17,3 +17,6 @@ test.ipynb
 data
 checkpoints
 logs
+cache
+raw
+top-1000.txt

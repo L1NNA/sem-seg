@@ -14,6 +14,8 @@ from torch.utils.tensorboard import SummaryWriter
 from utils.config import Config
 from utils.metrics import confusion, calculate_auroc
 from utils.checkpoint import save
+from utils.clone_search import CloneSearch
+from utils.distributed import gather_tensors
 
 
 def load_optimization(config:Config, model:nn.Module):
@@ -49,6 +51,7 @@ def train(
             optimizer.zero_grad()
 
             x = x.to(config.device)
+            # masking = masking.to(config.device)
             y:torch.Tensor = y.to(config.device)
 
             outputs = model(x)
@@ -73,6 +76,7 @@ def train(
         if config.distributed:
             dist.barrier()
         train_loss.clear()
+    
 
 def train_coe(
         config:Config, model:nn.Module,
@@ -82,6 +86,7 @@ def train_coe(
         init_epoch:int=0
     ):
     criterion = nn.CrossEntropyLoss()
+    sim_criterion = nn.CosineEmbeddingLoss()
     for epoch in range(init_epoch, config.epochs):
         if isinstance(train_loader.sampler, DistributedSampler):
             train_loader.sampler.set_epoch(epoch)
@@ -91,20 +96,25 @@ def train_coe(
         model.train()
         iterator = tqdm(train_loader, desc=f'Epoch {epoch+1}') \
             if config.is_host else train_loader
-        for x, y, y_mask, segs, labels in iterator:
+        for x, masking, segs, labels in iterator:
             # zero the parameter gradients
             optimizer.zero_grad()
 
             x = x.to(config.device)
-            y = y.to(config.device)
-            y_mask = y_mask.to(config.device)
+            masking = masking.to(config.device)
             segs = segs.to(config.device).reshape(-1)
             labels = labels.to(config.device).reshape(-1)
+            sims = torch.ones_like(labels).to(config.device)
 
-            segs_bar, labels_bar, similarity = model(x, None, y, y_mask)
+            segs_bar, labels_bar, hx = model(x, None)
+            hy = model.module.representation(x, masking) if config.distributed else model.representation(x, masking)
+
             segs_bar = segs_bar.reshape(segs.size(0), -1)
             labels_bar = labels_bar.reshape(labels.size(0), -1)
-            loss = 0.5 * criterion(segs_bar, segs) + criterion(labels_bar, labels) + similarity
+            hx = hx.reshape(sims.size(0), -1)
+            hy = hy.reshape(sims.size(0), -1)
+
+            loss = criterion(segs_bar, segs) + criterion(labels_bar, labels) + sim_criterion(hx, hy, sims)
 
             train_loss.append(loss.item())
 
@@ -119,8 +129,8 @@ def train_coe(
             train_loss_result = stat[0] / stat[1]
             print("Epoch {0}: Train Loss: {1:.7f}" \
                 .format(epoch + 1, train_loss_result))
-            # save(config, model, optimizer)
-        test_coe(config, model, val_loader, 'Epoch {} validation'.format(epoch+1), writer, epoch)
+            save(config, model, optimizer)
+        test_coe(config, model, val_loader, 'Validation', writer, epoch+1)
         if config.distributed:
             dist.barrier()
         train_loss.clear()
@@ -188,6 +198,7 @@ def test(config:Config, model, test_loader, name,
             if config.is_host else test_loader
         for x, y in iterator:
             x = x.to(config.device)
+            # masking = masking.to(config.device)
             y = y.to(config.device)
 
             outputs = model(x)
@@ -208,79 +219,76 @@ def test_coe(config:Config, model, test_loader, name,
         writer:SummaryWriter, epoch):
 
     model.eval()
-    
-    labels_true = None
-    labels_logits = None
-    labels_predictions = None
 
-    segs_true = None
-    segs_logits = None
-    segs_predictions = None
+    segs_cache = None
+    segs_weights_cache = None
+    segs_bar_cache = None
+    
+    labels_cache = None
+    labels_weights_cahe = None
+    labels_bar_cache = None
+
+    sims_cache = None
+    sim_bar_cache = None
 
     with torch.no_grad():
+        cs = CloneSearch(config)
+        cs.load_sources(test_loader.dataset, model)
         iterator = tqdm(test_loader, desc=name) \
             if config.is_host else test_loader
-        for x, y, y_mask, segs, labels in iterator:
+        for x, segs, labels, sims in iterator:
             x = x.to(config.device)
             segs = segs.to(config.device).reshape(-1)
             labels = labels.to(config.device).reshape(-1)
+            sims = sims.to(config.device).reshape(-1)
 
-            segs_bar, labels_bar, z = model.module.inference(x, None) if config.distributed else model.inference(x, None)
-            segs_bar = segs_bar.reshape(segs.size(0), -1)
-            labels_bar = labels_bar.reshape(labels.size(0), -1)
+            segs_logits, labels_logits, hx = model(x, None)
+            segs_logits = segs_logits.reshape(segs.size(0), -1)
+            labels_logits = labels_logits.reshape(labels.size(0), -1)
+            hx = hx.reshape(sims.size(0), -1)
+            sims_logits = cs.clone_search(hx)
 
-            segs_true, segs_logits, segs_predictions = \
-                _cache_logits(segs_bar, segs, segs_true, segs_logits, segs_predictions)
-            labels_true, labels_logits, labels_predictions = \
-                _cache_logits(labels_bar, labels, labels_true, labels_logits, labels_predictions)
+            segs_cache, segs_weights_cache, segs_bar_cache = \
+                _cache_logits(segs_logits, segs, segs_cache, segs_weights_cache, segs_bar_cache)
+            labels_cache, labels_weights_cahe, labels_bar_cache = \
+                _cache_logits(labels_logits, labels, labels_cache, labels_weights_cahe, labels_bar_cache)
+            sims_cache, _, sim_bar_cache = \
+                _cache_logits(sims_logits, sims, sims_cache, None, sim_bar_cache)
 
-    
     if config.distributed:
-        segs_true, segs_logits, segs_predictions = \
-            _reduce_metrics(segs_true, segs_logits, segs_predictions, config)
-        labels_true, labels_logits, labels_predictions = \
-            _reduce_metrics(labels_true, labels_logits, labels_predictions, config)
+        segs_cache, segs_weights_cache, segs_bar_cache = \
+            _reduce_metrics(segs_cache, segs_weights_cache, segs_bar_cache, config)
+        labels_cache, labels_weights_cahe, labels_bar_cache = \
+            _reduce_metrics(labels_cache, labels_weights_cahe, labels_bar_cache, config)
+        sims_cache, _, sim_bar_cache = \
+            _reduce_metrics(sims_cache, None, sim_bar_cache, config)
 
     if config.is_host:
-        _print_metrics(segs_true, segs_logits, segs_predictions, config, name + ' segmentation')
-        _print_metrics(labels_true, labels_logits, labels_predictions, config, name + ' labeling')
+        _print_metrics(segs_cache, segs_weights_cache, segs_bar_cache, config, name + ' segmentation', writer, epoch)
+        _print_metrics(labels_cache, labels_weights_cahe, labels_bar_cache, config, name + ' labeling', writer, epoch)
+        acc = (sims_cache == sim_bar_cache).sum().item()
+        total = sims_cache.size(0)
+        print("Clone Search:{}: Accuracy: {:.2f}% Total: {}".format(epoch, acc/total, total))
 
-def _cache_logits(bar, ground_truth, truths, logits, predictions):
-    probs = torch.softmax(bar, dim=1) # b x o
-    predicted = torch.argmax(probs, dim=1) # b x 1
+def _cache_logits(logits, ground_truth, gt_cache, weights_cache, bar_cache):
+    weights = torch.softmax(logits, dim=1) # b x o
+    bar = torch.argmax(weights, dim=1) # b x 1
 
-    truths = ground_truth if truths is None else torch.cat((truths, ground_truth))
-    logits = probs if logits is None else torch.cat([logits, probs])
-    predictions = predicted if predictions is None \
-        else torch.cat((predictions, predicted))
-    return truths, logits, predictions
+    gt_cache = ground_truth if gt_cache is None else torch.cat((gt_cache, ground_truth))
+    weights_cache = weights if weights_cache is None else torch.cat([weights_cache, weights])
+    bar_cache = bar if bar_cache is None else torch.cat((bar_cache, bar))
+    return gt_cache, weights_cache, bar_cache
 
-def  _reduce_metrics(truths, logits, predictions, config):
-    int_stats = [
-        torch.zeros(2, truths.size(0), dtype=torch.long).to(config.device) \
-        for _ in range(config.world_size)
-    ] if config.is_host else None
-    float_stats = [
-        torch.zeros(logits.size(), dtype=torch.float32).to(config.device) \
-        for _ in range(config.world_size)
-    ] if config.is_host else None
-    int_values = torch.stack((predictions, truths)).to(config.device)
-    logits = logits.to(config.device)
-    dist.gather(int_values, int_stats, 0)
-    dist.gather(logits, float_stats, 0)
+def  _reduce_metrics(gt_cache, weights_cache, bar_cache, config):
+    gt_cache = gather_tensors(gt_cache, config)
+    weights_cache = gather_tensors(weights_cache, config)
+    bar_cache = gather_tensors(bar_cache, config)
+    return gt_cache, weights_cache, bar_cache
 
-    if config.is_host:
-        stat = torch.cat(int_stats, dim=1)
-        predictions = stat[0].cpu()
-        truths = stat[1].cpu()
-        logits = torch.cat(float_stats).cpu()
-
-    return truths, logits, predictions
-
-def _print_metrics(truths, logits, predictions, config, name, writer, epoch):
+def _print_metrics(truths, weights, predictions, config, name, writer, epoch):
     total = truths.size(0)
-    accuracy, precision, recall, f1 = confusion(truths, predictions, logits.size(1))
-    auroc = calculate_auroc(truths, logits)
+    accuracy, precision, recall, f1 = confusion(truths, predictions, weights.size(1))
+    auroc = calculate_auroc(truths, weights)
 
     print("{}:{}: Accuracy: {:.2f}%, Precision: {:.2f}, Recall: {:.2f}, F1: {:.2f}, AUCROC: {:.2f}, Total: {}"\
             .format(name, epoch, accuracy, precision, recall, f1, auroc, total))

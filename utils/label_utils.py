@@ -1,6 +1,7 @@
 from typing import List, Tuple
 import re
 from enum import Enum
+from collections import Counter
 
 
 class SegType(Enum):
@@ -58,17 +59,46 @@ def get_seg_type(label:str) -> SegType:
 
     return SegType.UNK
 
+def get_simple_label(label:str) -> SegType:
+    if label is None:
+        return SegType.BOOTSTRAP
+    for boostrap in BOOTSTRAPS:
+        if re.match('^webpack://.*' + boostrap + '.*', label):
+            return SegType.BOOTSTRAP
+    return SegType.LOCAL
+
+
 
 def label_seg(labels:List[str]) -> int:
-    curr_value = SegType.min_value()
+    # curr_value = SegType.min_value()
     
+    # for label in labels:
+    #     seg_type = get_seg_type(label)
+    #     if SegType.max_value(seg_type):
+    #         return seg_type.value
+    #     if seg_type.value > curr_value:
+    #         curr_value = seg_type.value
+    # return curr_value
+    values = {}
+    max_value, max_type = 0, None
     for label in labels:
-        seg_type = get_seg_type(label)
-        if SegType.max_value(seg_type):
-            return seg_type.value
-        if seg_type.value > curr_value:
-            curr_value = seg_type.value
-    return curr_value
+        if label in values:
+            values[label] += 1
+        else:
+            values[label] = 1
+        if values[label] > max_value:
+            max_type = get_seg_type(label).value
+            max_value = values[label]
+    return max_type
+
+def get_most_common_label(labels:List[str]) -> str:
+    # Create a Counter object
+    counter = Counter(labels)
+
+    # Get the most common string(s)
+    most_common_strings = counter.most_common(1)
+
+    return most_common_strings[0][0]
 
 def get_num_of_labels(config):
     return len(SegType) - config.skip_label

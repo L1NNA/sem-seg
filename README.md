@@ -1,5 +1,5 @@
 # SBoM
-Software Bill-of-Materials by Chain-of-Experts, paper [link](https://www.overleaf.com/project/6331cafdb13619ac9254afd8)
+Software Bill-of-Materials by Chain-of-Experts
 
 ## Setup
 
@@ -21,12 +21,12 @@ pip install tensorboard
     - [x] Coefficients for Losses: plays no role
     - [v] Shared backbone has no impact on performance compared to standlone models
     - [x] FFN output for n classes - not relevant
-    - [ ] More windows?
+    - [v] More windows?
 - Seg:
-    - [ ] longer or shorter?
+    - [v] longer or shorter?
     - [x] Multiple windows: slow, same performance
 - Cls
-    - [ ] longer sequences are generally better
+    - [v] longer sequences are generally better
     - [x] segment windows has low performance
 - Ccr
     - [x] Longformer

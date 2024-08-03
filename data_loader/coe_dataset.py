@@ -4,24 +4,7 @@ import torch
 
 from utils.config import Config
 from utils.setup_BPE import get_tokenizer
-from utils.dist_dataset import DistDataset
-
-BOOTSTRAPS = (
-    'webpack/universalModuleDefinition',
-    'webpack/bootstrap',
-    'webpack/startup',
-    '/runtime/[a-zA-Z]+',
-    '/external',
-)
-
-def get_simple_label(label:str) -> int:
-    
-    if label is None:
-        return 0
-    for boostrap in BOOTSTRAPS:
-        if re.match('^webpack://.*' + boostrap + '.*', label):
-            return 0
-    return 1
+from data_loader.dist_dataset import DistDataset, get_simple_label, get_seg_type
 
 
 class COEDataset(DistDataset):
@@ -30,7 +13,7 @@ class COEDataset(DistDataset):
     """
 
     def __init__(self, config:Config, stage):
-        super().__init__(config, f'{config.data}_{config.seq_len}_{config.n_windows}', stage)
+        super().__init__(config, f'{config.seq_len}_{config.n_windows}', stage)
         self.n_windows = config.n_windows
         self.window_len = self.seq_len // self.n_windows
         self.pad_token_id = get_tokenizer().pad_token_id
@@ -41,10 +24,10 @@ class COEDataset(DistDataset):
         segs = []
         labels = []
         src_tokens = []
-        for token, seg, label, src_token in self.get_all(i, j, self.seq_len, self.pad_token_id):
+        for token, seg, label_type, src_token in self.get_all(i, j, self.seq_len, self.pad_token_id):
             tokens.append(token)
             segs.append(seg)
-            labels.append(get_seg_type(label).value)
+            labels.append(label_type)
             src_tokens.append(src_token)
 
         x = torch.tensor(tokens, dtype=torch.long)
@@ -68,11 +51,16 @@ class COEDataset(DistDataset):
         for i, seg_file in enumerate(self.tokens):
 
             seg_file:List[Tuple[List[str], str, List[str]]]
-            token_ids = [token for tokens,_,_ in seg_file for token in tokens]
-            if len(token_ids) < self.seq_len:
+            get_labels = lambda tokens:[0] * (len(tokens)-1) + [1]
+            all_labels:List[int] = [label for tokens,_,_ in seg_file for label in get_labels(tokens)]
+            if len(all_labels) < self.seq_len:
                 continue
 
-            for j in range(0, len(token_ids)-self.seq_len, self.window_len):
+            for j in range(0, len(all_labels)-self.seq_len, self.window_len):
+                if self.stage == 'train': # skip inputs with no boundaries for training
+                    label = 1 if 1 in all_labels[j:j+self.seq_len] else 0
+                    if label == 0:
+                        continue
                 self.indices.append((i, j))
 
         torch.save(self.indices, self.indices_cache_path)

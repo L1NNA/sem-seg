@@ -30,33 +30,30 @@ class Longformer(nn.Module):
         self.config = config
         self.output_size = output_dim
         self.n_windows = config.n_windows
-        self.cls_token_id = get_tokenizer().cls_token_id
 
         bert_config = LongformerConfig.from_pretrained(LONGFORMER)
         self.encoder = LongformerModel.from_pretrained(LONGFORMER,
                                                     config=bert_config,
                                                     add_pooling_layer=False)
-        if self.config.data != 'siamese_clone':
+        if self.output_size > 0:
             self.output = nn.Linear(bert_config.hidden_size, self.output_size)
 
-    def _concat_cls_token(self, x:torch.Tensor):
-        b = x.size(0)
-        x = x.reshape(b, self.n_windows, -1)
-        cls_tokens = torch.full((b, self.n_windows, 1), self.cls_token_id).to(x.device)
-        x = torch.cat([cls_tokens, x], dim=2)
-        x = x.reshape(b, -1)
+    def _global_attn_ids(self, x:torch.Tensor, x_mask:torch.Tensor):
         win_len = x.size(1) // self.n_windows
-        
         global_attention_mask  = torch.zeros(x.shape, dtype=torch.long, device=x.device)
-        global_attention_mask [:, [i*win_len for i in range(self.n_windows)]] = 1
-        return x, global_attention_mask
+        global_attention_mask[:, [i*win_len for i in range(self.n_windows)]] = 1
+        x_mask[:, [i*win_len for i in range(self.n_windows)]] = 1
+        return x, global_attention_mask, x_mask
 
-    def forward(self, x:torch.Tensor):
+    def forward(self, x:torch.Tensor, x_mask:torch.Tensor):
+        b = x.size(0)
+        win_len = x.size(1) // self.n_windows
         # add cls token at the beginning
-        x, global_attention_mask  = self._concat_cls_token(x)
+        x, global_attention_mask, x_mask = self._global_attn_ids(x, x_mask)
 
-        y = self.encoder(x, global_attention_mask=global_attention_mask).last_hidden_state
+        y = self.encoder(x, global_attention_mask=global_attention_mask, attention_mask=x_mask).last_hidden_state
+        y = y.reshape(b*self.n_windows, win_len, -1)
         y = cls_pooling(y)
-        if self.config.data != 'siamese_clone':
+        if self.output_size > 0:
             y = self.output(y)
         return y

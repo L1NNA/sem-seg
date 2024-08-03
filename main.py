@@ -6,27 +6,23 @@ import numpy as np
 import torch
 from torch.utils.tensorboard import SummaryWriter
 
-from models import cats, cosformer, graphcodebert, transformer, multi_cats, single_cats
-from models import chain_of_experts, autobert, longformer
-from data_loader import labeling_dataset
-from utils.data_utils import load_dataset, load_tokenizer, DATASET_MAP
-from utils.trainer import load_optimization, train, test, train_siamese, test_siamese, train_coe, test_coe
+from models import cats, graphcodebert, transformer, longformer, sentbert
+from models import chain_of_experts
+from utils.data_utils import load_dataset, load_tokenizer
+from utils.trainer import load_optimization, train, test
 from utils.checkpoint import load, save
 from utils.config import Config
-from utils.distributed import distribute_dataset, setup_device, distribute_model
+from utils.distributed import load_simple_dataset, setup_device_simple, parallel_model
 from utils.metrics import number_of_parameters
 
 
 models = {
     'transformer': transformer.Transformer,
-    'cosformer': cosformer.Cosformer,
     'cats': cats.CATS,
     'graphcodebert': graphcodebert.GraphCodeBERT,
-    'autobert': autobert.AutoBERT,
-    'coe': chain_of_experts.ChainOfExperts,
-    'multi_cats': multi_cats.MultiCATS,
+    'sentbert': sentbert.SentBERT,
     'longformer': longformer.Longformer,
-    'single_cats': single_cats.SingleCATS,
+    'coe': chain_of_experts.ChainOfExperts,
 }
 
 
@@ -41,8 +37,6 @@ def define_argparser():
                         help='the unique name of the current model')
     parser.add_argument('--model_name', type=str, default=None,
                         help='checkpoint name to load')
-    parser.add_argument('--comment', type=str, default='',
-                        help='comment')
     parser.add_argument('--seed', type=int, default=42,
                         help='random seed')
     parser.add_argument('--checkpoint', type=str, default='./checkpoints',
@@ -52,31 +46,28 @@ def define_argparser():
     parser.add_argument('--training', action='store_true', help='if training')
     parser.add_argument('--validation', action='store_true', help='if validation')
     parser.add_argument('--testing', action='store_true', help='if testing')
-    # parser.add_argument('--segmentation', type=str, default=None,
-    #                     help='if to segment a file')
 
     # data_loader
     parser.add_argument('--data_path', type=str, default='./data',
                         help='the path of data files')
-    parser.add_argument('--data', required=True, help='datasaets',
-                        choices=DATASET_MAP.keys())
-    # parser.add_argument('--database', type=str, default='./database',
-    #                     help='the path to the packages database')
+    parser.add_argument('--do_seg', action='store_true', help='if do segmentation experiments')
+    parser.add_argument('--do_cls', action='store_true', help='if do classification experiments')
+    parser.add_argument('--do_ccr', action='store_true', help='if do code clone reterival experiments')
+
     parser.add_argument('--num_workers', type=int, default=4,
                         help='number of workers')
     parser.add_argument('--batch_size', type=int, default=32,
                         help='batch size')
+    parser.add_argument('--test_batch_size', type=int, default=96,
+                        help='test batch size')
     parser.add_argument('--seq_len', type=int, default=512,
                         help='input sequence length')               
 
     # hyper-parameters
     transformer.add_args(parser)
     cats.add_args(parser)
-    cosformer.add_args(parser)
-    graphcodebert.add_args(parser)
-    autobert.add_args(parser)
+    sentbert.add_args(parser)
     chain_of_experts.add_args(parser)
-    labeling_dataset.add_args(parser)
 
     # optimization
     parser.add_argument('--epochs', type=int, default=10,
@@ -106,7 +97,7 @@ def load_config(arg=None):
     torch.manual_seed(config.seed)
     np.random.seed(config.seed)
 
-    setup_device(config)
+    setup_device_simple(config)
     # load tokenizer
     load_tokenizer(config)
     return config
@@ -119,8 +110,8 @@ def load_model(config:Config, output_dim):
     if not config.model_name:
         # build name
         config.model_name = '{}_{}_{}_seq{}{}_dim{}'.format(
-            config.data,
-            ('auto_' + config.bert_name) if config.model == 'autobert' else config.model,
+            get_task(config),
+            config.model,
             config.model_id,
             config.seq_len,
             '_win{}'.format(config.n_windows) if config.n_windows > 1 else '',
@@ -128,22 +119,25 @@ def load_model(config:Config, output_dim):
         )
     return model
 
+def get_task(config):
+    if config.do_seg and config.do_cls and config.do_ccr:
+        return 'coe'
+    elif config.do_seg:
+        return 'seg'
+    elif config.do_cls:
+        return 'cls'
+    elif config.do_ccr:
+        return 'ccr'
+
 
 def main(arg=None):
     config:Config = load_config(arg)
     
     # load dataset
     train_dataset, val_dataset, test_dataset, output_dim = load_dataset(config)
-    train_loader = distribute_dataset(config, train_dataset, config.batch_size)
-    val_loader = distribute_dataset(config, val_dataset, config.batch_size)
-    test_loader = distribute_dataset(config, test_dataset, config.batch_size)
-
-    trainer = train
-    tester = test
-    if config.data == 'siamese_clone':
-        trainer, tester = train_siamese, test_siamese
-    elif config.data == 'coe':
-        trainer, tester = train_coe, test_coe
+    train_loader = load_simple_dataset(config, train_dataset, config.batch_size)
+    val_loader = load_simple_dataset(config, val_dataset, config.test_batch_size)
+    test_loader = load_simple_dataset(config, test_dataset, config.test_batch_size)
 
     # load model
     model = load_model(config, output_dim)
@@ -156,7 +150,7 @@ def main(arg=None):
         optimizer = None
 
     # distribute model after weights loaded
-    model = distribute_model(config, model)
+    model = parallel_model(config, model)
     # load checkpoint
     init_epoch = load(config, model, optimizer)
     if config.is_host:
@@ -166,18 +160,18 @@ def main(arg=None):
 
     # training
     if config.training:
-        trainer(config, model, train_loader, val_loader,
+        train(config, model, train_loader, val_loader,
             optimizer, writer, init_epoch)
         init_epoch = config.epochs
         if config.is_host:
             save(config, model, optimizer)
     elif config.validation:
-        tester(config, model, val_loader, 'Validation', writer, init_epoch)
+        test(config, model, val_loader, 'Validation', writer, init_epoch)
     
 
     # testing
     if config.testing:
-        tester(config, model, test_loader, 'Test', writer, init_epoch)
+        test(config, model, test_loader, 'Test', writer, init_epoch)
 
 if __name__ == "__main__":
     main()

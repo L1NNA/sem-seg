@@ -14,26 +14,24 @@ class Config:
         self.checkpoint:str
         self.log_dir:str
         self.seed:int
-        self.comment:str
 
         self.training:bool
         self.validation:bool
         self.testing:bool
         
         self.data_path:str
-        self.data:str
+        self.do_seg:bool
+        self.do_cls:bool
+        self.do_ccr:bool
         self.database:Optional[str]
         self.vocab_size:int
         self.batch_size:int
+        self.test_batch_size:int
         self.test_batch_size:int
         self.seq_len:int
         self.max_samples:int
         self.mem_len:int
         self.num_workers:int
-
-        # labeling
-        self.skip_label:int
-        self.skip_seg:bool
 
         # transformer
         self.d_model:int
@@ -46,7 +44,7 @@ class Config:
         # cats
         self.n_windows:int
         self.w_layers:int
-        # auto bert
+        # sent bert
         self.bert_name:Optional[str]
         # COE
         self.sim_loss:str

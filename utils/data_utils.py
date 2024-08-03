@@ -1,31 +1,23 @@
 import torch.distributed as dist
 
-# from data_loader.segmentation_dataset import SegmentationDataset
-# from data_loader.labeling_dataset import LabelingDataset
 from data_loader.coe_dataset import COEDataset
-# from data_loader.multi_window_segmentation_dataset import MultiWindowSegmentationDataset
-# from data_loader.siamese_clone_dataset import SiameseCloneDataset
-# from data_loader.single_labeling_dataset import SingleLabelingDataset
-# from data_loader.coes_dataset import CoEsDataset
 from utils.setup_BPE import get_tokenizer
-from utils.dist_dataset import DistDataset
+from data_loader.dist_dataset import DistDataset, SegType
 from utils.config import Config
-from utils.label_utils import get_num_of_labels
 
 
-DATASET_MAP = {
-    'segmentation': (SegmentationDataset, lambda _: 2),
-    'labeling': (LabelingDataset, lambda config: get_num_of_labels(config)),
-    'coe': (CoEsDataset, lambda config:get_num_of_labels(config)), # COEDataset
-    'siamese_clone': (SiameseCloneDataset, lambda _:0),
-    'multi_window_seg': (MultiWindowSegmentationDataset, lambda _:2),
-    'single_labeling': (SingleLabelingDataset, lambda config:get_num_of_labels(config)),
-}
-
+def get_output_dim(config:Config):
+    if config.do_seg and config.do_cls and config.do_ccr:
+        return (2, len(SegType), -1)
+    elif config.do_seg:
+        return 2
+    elif config.do_cls:
+        return len(SegType)
+    elif config.do_ccr:
+        return -1
 
 def load_dataset(config:Config):
-    clazz, get_output_dim = DATASET_MAP[config.data]
-    train, valid, test = _load_all(clazz, config)
+    train, valid, test = _load_all(COEDataset, config)
     _load_cache(train, config)
     _load_cache(valid, config)
     _load_cache(test, config)
@@ -48,5 +40,9 @@ def _load_cache(dataset:DistDataset, config:Config):
     dataset.pipeline()
 
 def load_tokenizer(config:Config):
-    tokenizer = get_tokenizer(config.bert_name)
+    if config.bert_name is None \
+      and (config.model == 'longformer' \
+      or config.model == 'sentbert'):
+        config.bert_name = config.model
+    tokenizer = get_tokenizer(config)
     config.vocab_size = tokenizer.vocab_size

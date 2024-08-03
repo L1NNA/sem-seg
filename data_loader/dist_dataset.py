@@ -1,6 +1,7 @@
-import glob
+import glob, re
 from os.path import join, basename, exists
 from typing import List, Tuple, Iterator
+from enum import Enum
 
 import numpy as np
 import torch
@@ -10,7 +11,55 @@ from torch.utils.data import Dataset
 
 from utils.config import Config
 from utils.setup_BPE import get_tokenizer
-from utils.label_utils import get_seg_type, get_simple_label
+
+
+class SegType(Enum):
+    BOOTSTRAP = 0
+    LOCAL = 1
+    THIRD_PARTY = 2
+
+BOOTSTRAPS = (
+    'webpack/universalModuleDefinition',
+    'webpack/bootstrap',
+    'webpack/startup',
+    '/runtime/[a-zA-Z]+',
+    '/external',
+)
+NODE_MODULES = '/node_modules/'
+UNK = '<UNK>'
+
+def get_simple_label(label:str) -> int:
+    
+    if label is None:
+        return None
+    for boostrap in BOOTSTRAPS:
+        if re.match('^webpack://.*' + boostrap + '.*', label):
+            return SegType.BOOTSTRAP.value
+    return SegType.LOCAL.value
+
+def get_seg_type(label:str) -> int:
+    """
+    Map the source name to a segmentation type
+    """
+    if label is None:
+        return None
+
+    # The segment refers to a node module package
+    if label.find(NODE_MODULES) > -1:
+        return SegType.THIRD_PARTY.value
+
+    for boostrap in BOOTSTRAPS:
+        if re.match('^webpack://.*' + boostrap + '$', label):
+            return SegType.BOOTSTRAP.value
+
+    if label == UNK:
+        return None
+    
+    # Local files
+    if label.find('./') > -1:
+        return SegType.LOCAL.value
+
+    return None
 
 
 class DistDataset(Dataset):
@@ -32,11 +81,10 @@ class DistDataset(Dataset):
         self.name += '_' + stage
 
         self.tokens_path = join(config.data_path, 'tokens', f'{tokens_path_name}.pt')
-        self.tokens_path = join(config.data_path, 'tokens', f'{tokens_path_name}.pt')
         self.tokens:List[List[Tuple[List[str], str, List[str]]]] = []
         self.files_path = join(config.data_path, stage)
 
-        self.indices_cache_path = join(config.data_path, 'cache', config.data, f'{self.name}.indices.pt')
+        self.indices_cache_path = join(config.data_path, 'cache', f'{self.name}.indices.pt')
         self.indices:List = []
 
     def pipeline(self):
@@ -65,13 +113,19 @@ class DistDataset(Dataset):
             return
         
         tokenizer = get_tokenizer()
-        for seg_file in tqdm(glob.glob(join(self.files_path, '*.pt')), desc='Loading tokens'):
+        iterator = tqdm(glob.glob(join(self.files_path, '*.pt')), desc='Loading tokens')
+        for seg_file in iterator:
             segs = torch.load(seg_file)
             seg_tokens:List[Tuple[List[str], str, List[str]]] = []
             for seg, label, src in segs:
+                label_type = get_seg_type(label)
+                if label_type is None: # skip unknown sources
+                    continue
+                if len(src) >= len(seg) * 1.5:
+                    src = src[:int(len(seg) * 1.5)]
                 tokens:List[str] = tokenizer.encode(seg, add_special_tokens=False)
                 src_tokens:List[str] = tokenizer.encode(src, add_special_tokens=False)
-                seg_tokens.append((tokens, label, src_tokens))
+                seg_tokens.append((tokens, label_type, src_tokens))
             self.tokens.append(seg_tokens)
         torch.save(self.tokens, self.tokens_path)
 

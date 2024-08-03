@@ -47,10 +47,11 @@ class Transformer(nn.Module):
             TransformerLayer(self.d_model, self.n_heads, self.d_ff, self.dropout)
             for _ in range(self.n_layers)
         ])
-        self.output = nn.Linear(self.d_model, self.output_size)
+        if self.output_size > 0:
+            self.output = nn.Linear(self.d_model, self.output_size)
 
 
-    def forward(self, x:torch.Tensor):
+    def forward(self, x:torch.Tensor, masking:torch.Tensor):
         x = self.embedding(x) * self.embedding_scale
         x += self.pos_encoding(x)
         seq_len = x.size(1)
@@ -59,6 +60,7 @@ class Transformer(nn.Module):
         for i, layer in enumerate(self.layers):
             x, attn = layer(x, masking=masking)
             attns[f'attn_{i}'] = attn
-        output = self.output(x)
         output = causal_pooling(output)
+        if self.output_size > 0:
+            output = self.output(x)
         return output

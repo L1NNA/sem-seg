@@ -2,7 +2,8 @@ import torch
 from typing import Optional
 
 
-def create_masking(seq_len:int, span_len:int, device:Optional[torch.device]=None,
+def create_masking(seq_len:int, span_len:int, masking:torch.tensor,
+                   device:Optional[torch.device]=None,
                    mem_len:Optional[int]=None) -> torch.Tensor:
     """Generate a look-ahead (or look-back) mask
     to prevent attention to future tokens
@@ -53,4 +54,28 @@ def create_segment_masking(seg_ids:torch.Tensor) -> torch.Tensor:
         masking[i, last_j:j+1, last_j:j+1] = 0
         last_j = j+1
     return masking.bool().unsqueeze(1)
+
+
+def combine_causal_and_padding_masks(padding_mask, causal_mask):
+    """
+    Combine a padding mask (batch x seq_len) with a causal mask (seq_len x seq_len).
+    
+    Args:
+        padding_mask: A tensor with 1s for non-masked elements 
+                      and 0s for masked (padded) elements, shape (batch, seq_len).
+        causal_mask: A lower triangular matrix with -inf for future elements 
+                     and 0 for current and past elements, shape (seq_len, seq_len).
+    
+    Returns:
+        combined_mask: Combined mask with causal and padding constraints, shape (batch, seq_len, seq_len).
+    """
+    # (batch, seq_len, seq_len)
+    expanded_causal_mask = causal_mask.unsqueeze(0)
+
+    # (batch, 1, seq_len) -> (batch, seq_len, seq_len)
+    padding_mask = (1 - padding_mask.unsqueeze(1)).bool()
+
+    torch.logical_or(padding.unsqueeze(1), mask.unsqueeze(0))
+    
+    return torch.logical_or(padding_mask, expanded_causal_mask)
     

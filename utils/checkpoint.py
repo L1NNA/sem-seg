@@ -3,6 +3,7 @@ import torch
 from collections import OrderedDict
 
 from torch.nn.parallel import DistributedDataParallel as DDP
+import torch.nn as nn
 
 from utils.config import Config
 
@@ -16,7 +17,7 @@ def load_checkpoint(path, model, optimizer, config):
         name = k[7:] if k.startswith('module.') else k  # remove `module.` prefix
         new_state_dict[name] = v
 
-    if isinstance(model, DDP):
+    if isinstance(model, nn.DataParallel):
         model.module.load_state_dict(new_state_dict)
     else:
         model.load_state_dict(new_state_dict)
@@ -46,7 +47,7 @@ def save(config:Config, model, optimizer):
     checkpoint = os.path.join(config.checkpoint, config.model_name + '.pt')
     state = dict()
     state["epoch"] = config.epochs
-    state["model"] = model.module.state_dict() if config.distributed else model.state_dict()
+    state["model"] = model.module.state_dict() if isinstance(model, nn.DataParallel) else model.state_dict()
     state["optimizer"] = optimizer.state_dict()
     torch.save(state, checkpoint)
     if config.is_host:

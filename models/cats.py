@@ -10,7 +10,7 @@ import torch.nn as nn
 
 from layers.transformer import TransformerLayer
 from layers.embeddings import PositionalEncoding
-from layers.pooling import any_max_pooling, cls_pooling
+from layers.pooling import cls_pooling
 from utils.config import Config
 from utils.setup_BPE import get_tokenizer
 
@@ -70,7 +70,7 @@ class CATS(nn.Module):
         x = torch.cat([cls_tensor, x], dim=1) # b x s+1 x d
         return x
     
-    def forward(self, x:torch.Tensor):
+    def forward(self, x:torch.Tensor, masking:torch.Tensor):
         b = x.size(0)
         w, s_ = self.w, self.s_
 

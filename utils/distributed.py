@@ -1,9 +1,19 @@
 import torch
+import torch.nn as nn
 import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data import DataLoader, DistributedSampler
 
 from utils.config import Config
+
+
+def setup_device_simple(config:Config):
+    config.distributed = False
+    config.is_host = True
+    if not config.gpu or not torch.cuda.is_available():
+        config.device = torch.device("cpu")
+    else:
+        config.device = torch.device("cuda", config.local_rank if config.local_rank != None else 0)
 
 
 def setup_device(config:Config):
@@ -43,6 +53,13 @@ def distribute_dataset(config:Config, dataset, batch_size):
                       shuffle=not config.distributed,
                       sampler=sampler)
 
+def load_simple_dataset(config:Config, dataset, batch_size):
+    if dataset is None:
+        return
+    return DataLoader(dataset, num_workers=config.num_workers,
+                      batch_size=batch_size,
+                      shuffle=True)
+
 def distribute_model(args:Config, model):
     model = model.to(args.device)
     if args.distributed:
@@ -52,6 +69,12 @@ def distribute_model(args:Config, model):
         )
     # if args.is_host:
     #     print(model)
+    return model
+
+def parallel_model(args:Config, model):
+    model = model.to(args.device)
+    if torch.cuda.device_count() > 1:
+        model = nn.DataParallel(model)
     return model
 
 def gather_tensors(tensor, config:Config, dim=0, dest=0):

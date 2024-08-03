@@ -35,17 +35,13 @@ class GraphCodeBERT(nn.Module):
         self.encoder = RobertaModel.from_pretrained(GRAPH_CODE_BERT,
                                                     config=bert_config,
                                                     add_pooling_layer=False)
+        if self.output_size > 0:
+            self.output = nn.Linear(bert_config.hidden_size, self.output_size)
 
-        self.output = nn.Linear(bert_config.hidden_size, self.output_size)
-
-    def forward(self, x:torch.Tensor):
-        # add cls token at the beginning
-        b = x.size(0)
-        cls_tokens = torch.full((b, 1), self.cls_token_id).to(x.device)
-        x = torch.cat([cls_tokens, x[:,:-1]], dim=1)
-
-        position_ids = torch.arange(x.size(1), dtype=torch.long, device=x.device)
-        y = self.encoder(x, position_ids=position_ids).last_hidden_state
+    def forward(self, x:torch.Tensor, masking:torch.Tensor):
+    
+        y = self.encoder(x, attention_mask=masking).last_hidden_state
         y = cls_pooling(y)
-        y = self.output(y)
+        if self.output_size > 0:
+            y = self.output(y)
         return y

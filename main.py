@@ -6,7 +6,7 @@ import numpy as np
 import torch
 from torch.utils.tensorboard import SummaryWriter
 
-from models import cats, graphcodebert, transformer, longformer, sentbert
+from models import cats, graphcodebert, transformer, longformer, sentbert, codet5p
 from models import chain_of_experts
 from utils.data_utils import load_dataset, load_tokenizer
 from utils.trainer import load_optimization, train, test
@@ -23,6 +23,7 @@ models = {
     'sentbert': sentbert.SentBERT,
     'longformer': longformer.Longformer,
     'coe': chain_of_experts.ChainOfExperts,
+    'codet5p': codet5p.CodeT5P
 }
 
 

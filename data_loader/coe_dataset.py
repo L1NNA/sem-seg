@@ -17,6 +17,8 @@ class COEDataset(DistDataset):
         self.n_windows = config.n_windows
         self.window_len = self.seq_len // self.n_windows
         self.pad_token_id = get_tokenizer().pad_token_id
+        self.neg_ratio = 4 // self.n_windows
+        self.neg_count = self.neg_ratio
 
     def __getitem__(self, index):
         i, j = self.indices[index]
@@ -41,6 +43,20 @@ class COEDataset(DistDataset):
         y_mask = torch.where(y == self.pad_token_id, 0, 1)
 
         return x, x_mask, seg_tensor, label_tensor, y, y_mask
+    
+    def _is_downsampling_neg(self, all_labels, j):
+        if self.stage != 'train':
+            return False
+        label = 1 if 1 in all_labels[j:j+self.seq_len] else 0
+        if label == 1:
+            self.neg_count += self.neg_ratio
+            return False
+        else:
+            if self.neg_count > 0:
+                self.neg_count -= 1
+                return False
+            else:
+                return True
 
     def load_data(self):
         
@@ -57,10 +73,8 @@ class COEDataset(DistDataset):
                 continue
 
             for j in range(0, len(all_labels)-self.seq_len, self.window_len):
-                if self.stage == 'train': # skip inputs with no boundaries for training
-                    label = 1 if 1 in all_labels[j:j+self.seq_len] else 0
-                    if label == 0:
-                        continue
+                if self._is_downsampling_neg(all_labels, j):
+                    continue
                 self.indices.append((i, j))
 
         torch.save(self.indices, self.indices_cache_path)

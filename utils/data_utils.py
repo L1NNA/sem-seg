@@ -9,6 +9,8 @@ from utils.config import Config
 def get_output_dim(config:Config):
     if config.do_seg and config.do_cls and config.do_ccr:
         return (2, len(SegType), -1)
+    elif config.do_seg and config.do_cls:
+        return (2, len(SegType), -1)
     elif config.do_seg:
         return 2
     elif config.do_cls:

@@ -24,16 +24,16 @@ class SentBERT(nn.Module):
         model_path = get_model_path(config.bert_name)
         bert_config = AutoConfig.from_pretrained(model_path)
         self.encoder = AutoModel.from_pretrained(model_path,
-                                                config=bert_config,
-                                                add_pooling_layer=False)
+                                                config=bert_config)
+                                                # add_pooling_layer=False)
         if self.output_size > 0:
             self.output = nn.Linear(bert_config.hidden_size, self.output_size)
 
     def forward(self, x, masking=None):
-        # encoding
-        h = self.encoder(x, attention_mask=masking).last_hidden_state # b x l x d
+        # encoding # b x l x d
+        y = self.encoder(x, attention_mask=masking).pooler_output #.last_hidden_state 
         # pooling
-        y = cls_pooling(h) # b x d
+        # y = cls_pooling(h) # b x d
         if self.output_size > 0:
             y = self.output(y)
         return y

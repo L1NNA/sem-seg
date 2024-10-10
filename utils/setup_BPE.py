@@ -4,6 +4,7 @@ from transformers import RobertaTokenizerFast, AutoTokenizer
 GRAPH_CODE_BERT = 'microsoft/graphcodebert-base'
 LONGFORMER = 'allenai/longformer-base-4096'
 SENT_BERT = 'sentence-transformers/all-MiniLM-L12-v2'
+CODET5P = 'Salesforce/codet5p-110m-embedding'
 TOKENIZER = {
     'tokenizer': None
 }
@@ -22,6 +23,8 @@ def get_model_path(bert_name) -> str:
         return LONGFORMER
     elif bert_name == 'sentbert':
         return SENT_BERT
+    elif bert_name == 'codet5p':
+        return CODET5P
     else:
         return GRAPH_CODE_BERT
 

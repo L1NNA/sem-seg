@@ -18,11 +18,6 @@ class CodeT5P(nn.Module):
     """
     the hyperparameters are fixed as the followings:
     vocab_size=32103
-    d_model=768
-    num_layers=
-    num_heads=
-    d_ff=
-    seq_len=
     """
 
     def __init__(self, config:Config, output_dim) -> None:

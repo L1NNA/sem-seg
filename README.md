@@ -25,22 +25,3 @@ Each file has already been preprocessed into the following format `List[(segment
 
 ## Running the model
 Check `experiments` folder for scripts to train/test the model.
-
-
-
-### Ideas v - Yes, x - No 
-
-- [ ] CoE
-    - [x] Coefficients for Losses: plays no role
-    - [v] Shared backbone has no impact on performance compared to standlone models
-    - [x] FFN output for n classes - not relevant
-    - [v] More windows?
-- Seg:
-    - [v] longer or shorter?
-    - [x] Multiple windows: slow, same performance
-- Cls
-    - [v] longer sequences are generally better?
-    - [x] segment windows has low performance
-- Ccr
-    - [x] Longformer
-    - [x] Gzip()
